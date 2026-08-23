@@ -17,6 +17,7 @@ import {
   Truck,
   Users,
   X,
+  ZoomIn,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useEstimate } from "@/components/estimate/EstimateProvider";
@@ -242,156 +243,252 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
   const { add, totals, items } = useEstimate();
   const [q, setQ] = useState("");
   const [qty, setQty] = useState<Record<string, number>>({});
+  const [displayProducts, setDisplayProducts] = useState<CalcProduct[]>(products);
+  const [zoomProduct, setZoomProduct] = useState<CalcProduct | null>(null);
+
+  useEffect(() => {
+    setDisplayProducts(products);
+    try {
+      const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+      if (localRaw) {
+        const customArr = JSON.parse(localRaw);
+        if (Array.isArray(customArr) && customArr.length > 0) {
+          const map = new Map(products.map((p) => [p.id, p]));
+          for (const c of customArr) {
+            if (!c) continue;
+            const existing = map.get(c.id);
+            const merged = {
+              ...(existing || ({} as CalcProduct)),
+              ...c,
+              mrp: String(c.mrp),
+              offerPrice: String(c.offerPrice),
+            };
+            if (existing) {
+              map.set(existing.id, merged);
+            } else {
+              map.set(c.id || `prod-${Date.now()}`, merged);
+            }
+          }
+          setDisplayProducts(Array.from(map.values()));
+        }
+      }
+    } catch (err) {}
+  }, [products]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return term
-      ? products.filter(
+      ? displayProducts.filter(
           (p) =>
             p.name.toLowerCase().includes(term) ||
             p.sku.toLowerCase().includes(term) ||
             p.categoryName.toLowerCase().includes(term),
         )
-      : products;
-  }, [q, products]);
+      : displayProducts;
+  }, [q, displayProducts]);
 
-  const runningTotal = products.reduce(
+  const runningTotal = displayProducts.reduce(
     (s, p) => s + Number(p.offerPrice) * (qty[p.id] ?? 0),
     0,
   );
 
   return (
-    <div className="glass overflow-hidden rounded-[34px] border border-red-500/20 bg-white shadow-xl">
-      <div className="grid lg:grid-cols-[1.5fr_1fr]">
-        <div className="border-b border-red-500/12 p-7 lg:border-b-0 lg:border-r">
-          <div className="relative">
-            <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search all 110 products to price instantly..."
-              className="field pl-11 pr-10 !border-red-500/25 !bg-slate-50 !text-slate-900 focus:!border-red-600 font-bold"
-            />
-            {q && (
-              <button
-                onClick={() => setQ("")}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-red-600"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
+    <>
+      <div className="glass overflow-hidden rounded-[34px] border border-red-500/20 bg-white shadow-xl">
+        <div className="grid lg:grid-cols-[1.5fr_1fr]">
+          <div className="border-b border-red-500/12 p-7 lg:border-b-0 lg:border-r">
+            <div className="relative">
+              <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search all products to price instantly..."
+                className="field pl-11 pr-10 !border-red-500/25 !bg-slate-50 !text-slate-900 focus:!border-red-600 font-bold"
+              />
+              {q && (
+                <button
+                  onClick={() => setQ("")}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-red-600"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
 
-          <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-[1px] text-slate-500">
-            <span>Showing {filtered.length} of {products.length} products</span>
-            {q && <button onClick={() => setQ("")} className="text-red-600 hover:underline">Clear Search</button>}
-          </div>
+            <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-[1px] text-slate-500">
+              <span>Showing {filtered.length} of {displayProducts.length} products</span>
+              {q && <button onClick={() => setQ("")} className="text-red-600 hover:underline">Clear Search</button>}
+            </div>
 
-          <div className="mt-3 max-h-[500px] space-y-3 overflow-y-auto pr-1.5 hide-scrollbar">
-            {filtered.length === 0 ? (
-              <div className="p-10 text-center text-slate-500 font-medium">
-                No products match &quot;{q}&quot;. Try searching for &quot;Laxmi&quot;, &quot;Sparklers&quot;, or &quot;Fancy&quot;.
-              </div>
-            ) : (
-              filtered.map((p) => {
-                const n = qty[p.id] ?? 0;
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.imageUrl ?? ""}
-                      alt={p.name}
-                      loading="lazy"
-                      className="h-12 w-12 rounded-xl object-cover border border-slate-200"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13.5px] font-bold text-slate-900">{p.name}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="font-bold text-red-600 sm:hidden">
-                          {formatINR(Number(p.offerPrice))}
-                        </span>
-                        <span className="uppercase tracking-[1.5px] text-slate-500 font-medium">
-                          {p.sku} · {p.packing}
-                        </span>
+            <div className="mt-3 max-h-[500px] space-y-3 overflow-y-auto pr-1.5 hide-scrollbar">
+              {filtered.length === 0 ? (
+                <div className="p-10 text-center text-slate-500 font-medium">
+                  No products match &quot;{q}&quot;. Try searching for &quot;Laxmi&quot;, &quot;Sparklers&quot;, or &quot;Fancy&quot;.
+                </div>
+              ) : (
+                filtered.map((p) => {
+                  const n = qty[p.id] ?? 0;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
+                    >
+                      {/* Interactive Zoomable Product Thumbnail */}
+                      <div
+                        onClick={() => setZoomProduct(p)}
+                        className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm"
+                        title="Click to Zoom Image"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={p.imageUrl ?? "/images/placeholder.jpg"}
+                          alt={p.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <ZoomIn size={16} className="text-white" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-bold text-slate-900">{p.name}</p>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="font-bold text-red-600 sm:hidden">
+                            {formatINR(Number(p.offerPrice))}
+                          </span>
+                          <span className="uppercase tracking-[1.5px] text-slate-500 font-medium">
+                            {p.sku} · {p.packing}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="hidden text-sm font-bold text-red-600 sm:block">
+                        {formatINR(Number(p.offerPrice))}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          aria-label="decrease"
+                          onClick={() => {
+                            const next = Math.max(0, n - 1);
+                            setQty((s) => ({ ...s, [p.id]: next }));
+                            if (next > 0) {
+                              add({ ...p, price: p.offerPrice } as any, next);
+                            }
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
+                        <button
+                          aria-label="increase"
+                          onClick={() => {
+                            const next = n + 1;
+                            setQty((s) => ({ ...s, [p.id]: next }));
+                            add({ ...p, price: p.offerPrice } as any, next);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
+                        >
+                          <Plus size={14} />
+                        </button>
                       </div>
                     </div>
-                    <p className="hidden text-sm font-bold text-red-600 sm:block">
-                      {formatINR(Number(p.offerPrice))}
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        aria-label="decrease"
-                        onClick={() => {
-                          const next = Math.max(0, n - 1);
-                          setQty((s) => ({ ...s, [p.id]: next }));
-                          if (next > 0) {
-                            add({ ...p, price: p.offerPrice } as any, next);
-                          }
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
-                      <button
-                        aria-label="increase"
-                        onClick={() => {
-                          const next = n + 1;
-                          setQty((s) => ({ ...s, [p.id]: next }));
-                          add({ ...p, price: p.offerPrice } as any, next);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-between p-7 bg-slate-50/60">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[3px] text-red-600">Live Calculation</p>
-            <p className="mt-4 font-display text-[38px] font-bold text-slate-900">
-              {formatINR(runningTotal)}
-            </p>
-            <p className="text-[12.5px] text-slate-500 font-medium">
-              {Object.values(qty).reduce((a, b) => a + b, 0)} units selected here
-            </p>
-
-            <div className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-[13px]">
-              <div className="flex justify-between text-slate-600">
-                <span>In your estimate</span>
-                <span className="font-bold text-slate-900">{items.length} products</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Estimate subtotal</span>
-                <span className="font-bold text-red-600">{formatINR(totals.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Total item count</span>
-                <span className="font-bold text-slate-900">{totals.units} pcs</span>
-              </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          <div className="mt-7 pt-4">
-            <Link
-              href="/estimate"
-              className="btn-gold block w-full py-3.5 text-center text-sm uppercase"
-            >
-              Open Full Estimate Sheet →
-            </Link>
+          <div className="flex flex-col justify-between p-7 bg-slate-50/60">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[3px] text-red-600">Live Calculation</p>
+              <p className="mt-4 font-display text-[38px] font-bold text-slate-900">
+                {formatINR(runningTotal)}
+              </p>
+              <p className="text-[12.5px] text-slate-500 font-medium">
+                {Object.values(qty).reduce((a, b) => a + b, 0)} units selected here
+              </p>
+
+              <div className="mt-6 space-y-2 border-t border-slate-200 pt-5 text-[13px]">
+                <div className="flex justify-between text-slate-600">
+                  <span>In your estimate</span>
+                  <span className="font-bold text-slate-900">{items.length} products</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Estimate subtotal</span>
+                  <span className="font-bold text-red-600">{formatINR(totals.subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Total item count</span>
+                  <span className="font-bold text-slate-900">{totals.units} pcs</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7 pt-4">
+              <Link
+                href="/estimate"
+                className="btn-gold block w-full py-3.5 text-center text-sm uppercase"
+              >
+                Open Full Estimate Sheet →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Image Zoom Lightbox Modal */}
+      <AnimatePresence>
+        {zoomProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setZoomProduct(null)}
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-red-500/20 bg-white p-6 shadow-2xl"
+            >
+              <button
+                onClick={() => setZoomProduct(null)}
+                className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/70 text-white transition hover:bg-red-600"
+              >
+                <X size={18} />
+              </button>
+              <div className="aspect-square w-full overflow-hidden rounded-[24px] bg-slate-100 border border-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={zoomProduct.imageUrl || "/images/placeholder.jpg"}
+                  alt={zoomProduct.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="mt-4">
+                <span className="text-[10.5px] font-bold uppercase tracking-[2px] text-red-600 block">
+                  {zoomProduct.categoryName} · {zoomProduct.sku}
+                </span>
+                <h3 className="font-display text-xl font-bold text-slate-900 mt-1">{zoomProduct.name}</h3>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">Packing: {zoomProduct.packing}</p>
+                <div className="mt-4 flex items-baseline gap-3">
+                  <span className="font-display text-2xl font-bold text-red-600">
+                    {formatINR(Number(zoomProduct.offerPrice))}
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 line-through">
+                    {formatINR(Number(zoomProduct.mrp))}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
