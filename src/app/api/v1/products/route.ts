@@ -82,37 +82,42 @@ export async function POST(req: Request) {
 
   // 2. Best-effort DB Sync
   try {
-    await db
-      .insert(products)
-      .values({
-        sku: productRecord.sku,
-        slug: productRecord.slug,
-        name: productRecord.name,
-        categoryId: "00000000-0000-0000-0000-000000000001",
-        imageUrl: productRecord.imageUrl,
-        packing: productRecord.packing,
-        mrp: String(productRecord.mrp),
-        offerPrice: String(productRecord.offerPrice),
-        discountPercent: productRecord.discountPercent,
-        moq: productRecord.moq,
-        stock: productRecord.stock,
-        isFeatured: productRecord.isFeatured,
-        isNewArrival: productRecord.isNewArrival,
-        isBestSeller: productRecord.isBestSeller,
-        isPremium: productRecord.isPremium,
-      })
-      .onConflictDoUpdate({
-        target: products.sku,
-        set: {
+    const existingCat = await db.select({ id: categories.id }).from(categories).limit(1);
+    const validCategoryId = existingCat.length > 0 ? existingCat[0].id : null;
+
+    if (validCategoryId) {
+      await db
+        .insert(products)
+        .values({
+          sku: productRecord.sku,
+          slug: productRecord.slug,
           name: productRecord.name,
+          categoryId: validCategoryId,
+          imageUrl: productRecord.imageUrl,
+          packing: productRecord.packing,
           mrp: String(productRecord.mrp),
           offerPrice: String(productRecord.offerPrice),
-          packing: productRecord.packing,
-          imageUrl: productRecord.imageUrl,
+          discountPercent: productRecord.discountPercent,
+          moq: productRecord.moq,
           stock: productRecord.stock,
-          updatedAt: new Date(),
-        },
-      });
+          isFeatured: productRecord.isFeatured,
+          isNewArrival: productRecord.isNewArrival,
+          isBestSeller: productRecord.isBestSeller,
+          isPremium: productRecord.isPremium,
+        })
+        .onConflictDoUpdate({
+          target: products.sku,
+          set: {
+            name: productRecord.name,
+            mrp: String(productRecord.mrp),
+            offerPrice: String(productRecord.offerPrice),
+            packing: productRecord.packing,
+            imageUrl: productRecord.imageUrl,
+            stock: productRecord.stock,
+            updatedAt: new Date(),
+          },
+        });
+    }
   } catch (err) {
     console.warn("[POST /products] DB background sync note:", err);
   }

@@ -19,23 +19,53 @@ export function ProductBrowser({
   total: number;
 }) {
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [displayItems, setDisplayItems] = useState<CardProduct[]>(items);
   const { add } = useEstimate();
+
+  useEffect(() => {
+    setDisplayItems(items);
+    try {
+      const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+      if (localRaw) {
+        const customArr = JSON.parse(localRaw);
+        if (Array.isArray(customArr) && customArr.length > 0) {
+          const map = new Map(items.map((p) => [p.id, p]));
+          for (const c of customArr) {
+            if (!c) continue;
+            const existing = map.get(c.id);
+            const merged = {
+              ...(existing || ({} as CardProduct)),
+              ...c,
+              mrp: String(c.mrp),
+              offerPrice: String(c.offerPrice),
+            };
+            if (existing) {
+              map.set(existing.id, merged);
+            } else {
+              map.set(c.id || `prod-${Date.now()}`, merged);
+            }
+          }
+          setDisplayItems(Array.from(map.values()));
+        }
+      }
+    } catch (err) {}
+  }, [items]);
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[270px_1fr]">
       <BrowserControls
         categories={categories}
-        total={total}
+        total={displayItems.length}
         view={view}
         onViewChange={setView}
       />
 
       <div>
         <p className="mb-5 text-[12.5px] font-bold uppercase tracking-[2px] text-slate-500">
-          Showing {items.length} of {total} products
+          Showing {displayItems.length} of {displayItems.length} products
         </p>
 
-        {items.length === 0 && (
+        {displayItems.length === 0 && (
           <div className="glass rounded-[28px] p-14 text-center border border-red-500/15 bg-white shadow-md">
             <p className="font-display text-xl font-bold text-slate-900">No products matched your filters</p>
             <p className="mt-2 text-sm text-slate-600 font-medium">
@@ -49,13 +79,13 @@ export function ProductBrowser({
 
         {view === "grid" ? (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((p, i) => (
+            {displayItems.map((p, i) => (
               <ProductCard key={p.id} p={p} index={i} />
             ))}
           </div>
         ) : (
           <div className="space-y-4">
-            {items.map((p) => (
+            {displayItems.map((p) => (
               <div
                 key={p.id}
                 className="glass lift-card flex flex-col gap-5 rounded-[26px] p-4 border border-red-500/15 bg-white shadow-md sm:flex-row sm:items-center"
