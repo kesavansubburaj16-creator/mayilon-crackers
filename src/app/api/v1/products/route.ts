@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { products } from "@/db/schema";
+import { categories, products } from "@/db/schema";
 import { fail, ok } from "@/lib/api";
 import { getProducts } from "@/lib/data";
 import {
