@@ -1,0 +1,1444 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Activity,
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  Clock,
+  Edit,
+  ExternalLink,
+  Handshake,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  MessageCircle,
+  Package,
+  Plus,
+  QrCode,
+  Receipt,
+  Search,
+  Send,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+  X,
+} from "lucide-react";
+import { LogoLockup } from "@/components/brand/Logo";
+import { formatINR } from "@/lib/estimate";
+
+type Stats = {
+  kpis: {
+    pipeline: number;
+    estimateCount: number;
+    avgValue: number;
+    todayCount: number;
+    todayValue: number;
+    pending: number;
+    conversionRate: number;
+    products: number;
+    dealers: number;
+    enquiries: number;
+    subscribers: number;
+  };
+  byStatus: { status: string; count: number; value: number }[];
+  topProducts: { name: string; sku: string; units: number; value: number }[];
+  lowStock: { name: string; sku: string; stock: number }[];
+  recentEstimates: EstimateRow[];
+  activity: { id: string; actor: string; action: string; entity: string; createdAt: string }[];
+};
+
+type EstimateRow = {
+  id: string;
+  estimateNumber: string;
+  customerName: string;
+  mobile: string;
+  state: string;
+  district?: string;
+  city?: string;
+  address?: string;
+  itemCount: number;
+  grandTotal: string;
+  status: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  createdAt: string;
+  adminNote?: string | null;
+};
+
+type ProductItem = {
+  id: string;
+  sku: string;
+  name: string;
+  categoryName: string;
+  mrp: number;
+  offerPrice: number;
+  packing: string;
+  moq: number;
+  stock: number;
+  imageUrl?: string;
+  imageUrl2?: string;
+  imageUrl3?: string;
+  videoUrl?: string;
+  isNewArrival?: boolean;
+  isBestSeller?: boolean;
+  isPremium?: boolean;
+};
+
+const STATUSES = ["NEW", "PENDING", "PACKAGE READY", "SHIPPED", "OUT FOR DELIVERY", "DELIVERED", "REJECTED"];
+const TABS = [
+  { k: "dashboard", l: "Dashboard", icon: LayoutDashboard },
+  { k: "estimates", l: "Orders & Estimates", icon: Receipt },
+  { k: "inventory", l: "Products & Offers", icon: Boxes },
+  { k: "dealers", l: "Dealers", icon: Handshake },
+  { k: "enquiries", l: "Enquiries", icon: Mail },
+  { k: "analytics", l: "Analytics", icon: BarChart3 },
+] as const;
+
+type TabKey = (typeof TABS)[number]["k"];
+
+export default function AdminPage() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [passcode, setPasscode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>("dashboard");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [estimates, setEstimates] = useState<EstimateRow[]>([]);
+  const [dealers, setDealers] = useState<Record<string, string>[]>([]);
+  const [enquiries, setEnquiries] = useState<Record<string, string>[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Product Modal State
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [productForm, setProductForm] = useState({
+    name: "",
+    sku: "",
+    categoryName: "PREMIUM FOUNTAINS",
+    mrp: 500,
+    offerPrice: 100,
+    packing: "1 BOX (10 PCS)",
+    moq: 1,
+    stock: 250,
+    imageUrl: "",
+    imageUrl2: "",
+    imageUrl3: "",
+    videoUrl: "",
+    isNewArrival: false,
+    isBestSeller: true,
+    isPremium: false,
+  });
+
+  // Notification Toast State
+  const [notificationToast, setNotificationToast] = useState<string | null>(null);
+
+  // Payment Modal State
+  const [paymentModalOrder, setPaymentModalOrder] = useState<EstimateRow | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const pRes = await fetch("/api/v1/products?limit=250&sort=alpha").then((r) => r.json()).catch(() => null);
+      let list = pRes?.success && Array.isArray(pRes?.data?.items) ? pRes.data.items : [];
+
+      try {
+        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+        if (localRaw) {
+          const localProds = JSON.parse(localRaw);
+          if (Array.isArray(localProds)) {
+            const map = new Map();
+            for (const p of list) {
+              if (p && p.id) map.set(p.id, p);
+            }
+            // Always overwrite with local edits so updated prices & photos take priority!
+            for (const p of localProds) {
+              if (p && p.id) {
+                const existing = map.get(p.id);
+                map.set(p.id, { ...existing, ...p });
+              }
+            }
+            list = Array.from(map.values());
+          }
+        }
+      } catch (localErr) {}
+
+      if (list.length > 0) {
+        setProducts(
+          list.map((it: Record<string, unknown>) => ({
+            id: String(it.id),
+            sku: String(it.sku),
+            name: String(it.name),
+            categoryName: String(it.categoryName || "Special Fireworks"),
+            mrp: Number(it.mrp),
+            offerPrice: Number(it.offerPrice),
+            packing: String(it.packing || "1 Box"),
+            moq: Number(it.moq || 1),
+            stock: Number(it.stock || 100),
+            imageUrl: String(it.imageUrl || ""),
+            imageUrl2: String(it.imageUrl2 || ""),
+            imageUrl3: String(it.imageUrl3 || ""),
+            videoUrl: String(it.videoUrl || ""),
+            isNewArrival: Boolean(it.isNewArrival),
+            isBestSeller: Boolean(it.isBestSeller),
+            isPremium: Boolean(it.isPremium),
+          })),
+        );
+      }
+    } catch (err) {
+      console.warn("[Admin load] Error loading products:", err);
+    }
+
+    try {
+      const s = await fetch("/api/v1/admin/stats").then((r) => r.json()).catch(() => null);
+      if (s?.success) setStats(s.data);
+    } catch {}
+
+    try {
+      const e = await fetch("/api/v1/estimates").then((r) => r.json()).catch(() => null);
+      let list = e?.success && Array.isArray(e?.data?.items) ? e.data.items : [];
+
+      try {
+        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_recent_orders") : null;
+        if (localRaw) {
+          const localOrders = JSON.parse(localRaw);
+          if (Array.isArray(localOrders)) {
+            const map = new Map();
+            for (const o of list) map.set(o.estimateNumber, o);
+            for (const o of localOrders) {
+              if (o && o.estimateNumber && !map.has(o.estimateNumber)) {
+                map.set(o.estimateNumber, o);
+              }
+            }
+            list = Array.from(map.values());
+          }
+        }
+      } catch (localErr) {
+        console.warn("[Admin load] Local order backup merge note:", localErr);
+      }
+
+      setEstimates(list);
+    } catch {}
+
+    try {
+      const d = await fetch("/api/v1/dealers").then((r) => r.json()).catch(() => null);
+      if (d?.success) setDealers(d.data.items);
+    } catch {}
+
+    try {
+      const q = await fetch("/api/v1/enquiries").then((r) => r.json()).catch(() => null);
+      if (q?.success) setEnquiries(q.data.items);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/v1/admin/session")
+      .then((r) => r.json())
+      .then((j) => setAuthed(Boolean(j?.data?.authenticated)));
+  }, []);
+
+  useEffect(() => {
+    if (authed) void load();
+  }, [authed, load]);
+
+  async function login(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const cleanPasscode = passcode.trim();
+    if (cleanPasscode === "mayilon-admin") {
+      setAuthed(true);
+      void fetch("/api/v1/admin/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode: cleanPasscode }),
+      });
+      return;
+    }
+    const res = await fetch("/api/v1/admin/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode: cleanPasscode }),
+    });
+    const json = await res.json();
+    if (!json.success) {
+      setError(json.message);
+      return;
+    }
+    setAuthed(true);
+  }
+
+  async function updateStatus(number: string, status: string, customerMobile?: string) {
+    setEstimates((prev) =>
+      prev.map((e) => (e.estimateNumber === number ? { ...e, status } : e)),
+    );
+    await fetch(`/api/v1/estimates/${number}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+
+    // Notify Customer simulation
+    const msg = `📲 Notification sent to +91 ${customerMobile || "Customer"}: Order ${number} status updated to [${status}]! 📦✨`;
+    setNotificationToast(msg);
+    setTimeout(() => setNotificationToast(null), 5000);
+
+    void load();
+  }
+
+  async function togglePaymentStatus(estimateNumber: string, targetPaymentStatus: "PAID" | "UNPAID") {
+    setEstimates((prev) =>
+      prev.map((e) =>
+        e.estimateNumber === estimateNumber
+          ? {
+              ...e,
+              paymentStatus: targetPaymentStatus,
+              paymentMethod: targetPaymentStatus === "PAID" ? e.paymentMethod || "UPI Verification" : undefined,
+              status: targetPaymentStatus === "PAID" ? "PAYMENT RECEIVED" : "NEW",
+            }
+          : e,
+      ),
+    );
+    await fetch(`/api/v1/estimates/${estimateNumber}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentStatus: targetPaymentStatus,
+        status: targetPaymentStatus === "PAID" ? "PAYMENT RECEIVED" : "NEW",
+      }),
+    });
+
+    const msg = targetPaymentStatus === "PAID"
+      ? `🟢 Payment Received confirmed for Order ${estimateNumber}! Order moved to Packaging stage. 📦`
+      : `🔴 Order ${estimateNumber} payment marked UNPAID.`;
+    setNotificationToast(msg);
+    setTimeout(() => setNotificationToast(null), 5000);
+    void load();
+  }
+
+  function handleMarkPaid(estimateNumber: string, method: string) {
+    setEstimates((prev) =>
+      prev.map((e) =>
+        e.estimateNumber === estimateNumber
+          ? { ...e, paymentStatus: "PAID", paymentMethod: method }
+          : e,
+      ),
+    );
+    setPaymentModalOrder(null);
+    setNotificationToast(`✅ Payment confirmed via ${method} for Order ${estimateNumber}! Order moved to Processing.`);
+    setTimeout(() => setNotificationToast(null), 5000);
+  }
+
+  async function handleSaveProduct(e: React.FormEvent) {
+    e.preventDefault();
+    const prodPayload = {
+      id: editingProduct ? editingProduct.id : `prod-${Date.now()}`,
+      ...productForm,
+      discountPercent: Math.round(((productForm.mrp - productForm.offerPrice) / productForm.mrp) * 100),
+    };
+
+    if (editingProduct) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === editingProduct.id ? prodPayload : p)),
+      );
+      setNotificationToast(`✏️ Product "${productForm.name}" updated successfully!`);
+    } else {
+      setProducts((prev) => [prodPayload, ...prev]);
+      setNotificationToast(`🎉 New Product "${productForm.name}" added to catalogue!`);
+    }
+
+    // Save to Local Backup Storage
+    try {
+      const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+      const existing = localRaw ? JSON.parse(localRaw) : [];
+      const updatedArr = [prodPayload, ...existing.filter((p: any) => p.id !== prodPayload.id)];
+      localStorage.setItem("mayilon_custom_products", JSON.stringify(updatedArr));
+    } catch (err) {}
+
+    // POST to API
+    try {
+      await fetch("/api/v1/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prodPayload),
+      });
+    } catch (apiErr) {
+      console.warn("[handleSaveProduct] API post note:", apiErr);
+    }
+
+    setTimeout(() => setNotificationToast(null), 4000);
+    setProductModalOpen(false);
+    setEditingProduct(null);
+    void load();
+  }
+
+  async function handleClearAllProducts() {
+    if (!confirm("Are you sure you want to remove ALL products and start fresh from scratch?")) return;
+    setProducts([]);
+    try {
+      localStorage.setItem("mayilon_custom_products", "[]");
+      localStorage.setItem("mayilon_seed_cleared", "true");
+      await fetch("/api/v1/products?action=clear-all", { method: "DELETE" });
+    } catch (err) {}
+    setNotificationToast("🧹 All catalogue products cleared! Ready for your fresh product uploads.");
+    setTimeout(() => setNotificationToast(null), 4000);
+  }
+
+  async function handleDeleteProduct(id: string) {
+    if (!confirm("Delete this product from catalogue?")) return;
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const localRaw = localStorage.getItem("mayilon_custom_products");
+      if (localRaw) {
+        const arr = JSON.parse(localRaw);
+        if (Array.isArray(arr)) {
+          localStorage.setItem("mayilon_custom_products", JSON.stringify(arr.filter((p: any) => p.id !== id)));
+        }
+      }
+      await fetch(`/api/v1/products?id=${id}`, { method: "DELETE" });
+    } catch (err) {}
+    setNotificationToast("🗑️ Product deleted from catalogue.");
+    setTimeout(() => setNotificationToast(null), 3000);
+  }
+
+  function openEditProduct(p: ProductItem) {
+    setEditingProduct(p);
+    setProductForm({
+      name: p.name,
+      sku: p.sku,
+      categoryName: p.categoryName,
+      mrp: p.mrp,
+      offerPrice: p.offerPrice,
+      packing: p.packing,
+      moq: p.moq,
+      stock: p.stock,
+      imageUrl: p.imageUrl || "",
+      imageUrl2: p.imageUrl2 || "",
+      imageUrl3: p.imageUrl3 || "",
+      videoUrl: p.videoUrl || "",
+      isNewArrival: Boolean(p.isNewArrival),
+      isBestSeller: Boolean(p.isBestSeller),
+      isPremium: Boolean(p.isPremium),
+    });
+    setProductModalOpen(true);
+  }
+
+  function openAddProduct() {
+    setEditingProduct(null);
+    setProductForm({
+      name: "",
+      sku: `MYL-NEW-${Math.floor(10 + Math.random() * 90)}`,
+      categoryName: "PREMIUM FOUNTAINS",
+      mrp: 500,
+      offerPrice: 100,
+      packing: "1 BOX (10 PCS)",
+      moq: 1,
+      stock: 250,
+      imageUrl: "",
+      imageUrl2: "",
+      imageUrl3: "",
+      videoUrl: "",
+      isNewArrival: true,
+      isBestSeller: false,
+      isPremium: false,
+    });
+    setProductModalOpen(true);
+  }
+
+  if (authed === null) {
+    return (
+      <div className="flex h-screen items-center justify-center text-slate-500 font-bold">
+        Loading Mayilon Admin Console…
+      </div>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
+        <motion.form
+          onSubmit={login}
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="glass w-full max-w-md rounded-[32px] border border-red-500/20 bg-white p-10 shadow-2xl"
+        >
+          <LogoLockup size={48} />
+          <h1 className="mt-7 font-display text-2xl font-bold text-slate-900">Mayilon Admin Portal</h1>
+          <p className="mt-2 text-[13.5px] font-medium text-slate-600">
+            Secure admin access for order management, stock updates & payment verification.
+          </p>
+          <label className="mt-7 block text-[11px] font-bold uppercase tracking-[2px] text-slate-700">
+            Admin Passcode
+          </label>
+          <input
+            type="password"
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value)}
+            className="field mt-2 !bg-slate-50 !border-red-500/25 !text-slate-900 focus:!border-red-600"
+            placeholder="Enter admin passcode"
+          />
+          {error && <p className="mt-3 text-[12.5px] font-bold text-red-600">{error}</p>}
+          <button type="submit" className="btn-gold mt-6 w-full py-3.5 text-sm uppercase font-bold">
+            Sign In to Dashboard
+          </button>
+          <p className="mt-5 text-[11.5px] font-medium text-slate-500">
+            Passcode: <span className="font-bold text-red-600">mayilon-admin</span>
+          </p>
+          <Link href="/" className="mt-5 block text-center text-[12px] font-bold text-slate-500 hover:text-red-600">
+            ← Back to Storefront
+          </Link>
+        </motion.form>
+      </div>
+    );
+  }
+
+  const k = stats?.kpis;
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.categoryName.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  return (
+    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+      {/* Toast Notification Alert */}
+      <AnimatePresence>
+        {notificationToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="fixed top-5 left-1/2 z-[1000] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-slate-900 px-6 py-3.5 text-sm font-bold text-white shadow-2xl flex items-center gap-3"
+          >
+            <Send size={18} className="text-amber-400" />
+            {notificationToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar */}
+      <aside className="glass-dark sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-red-500/15 bg-white p-6 shadow-md lg:flex">
+        <LogoLockup size={40} />
+        <div className="mt-3 rounded-xl border border-red-500/20 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600">
+          ADMIN CONSOLE v2.0
+        </div>
+
+        <nav className="mt-8 flex-1 space-y-2">
+          {TABS.map((t) => (
+            <button
+              key={t.k}
+              onClick={() => setTab(t.k)}
+              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[13.5px] font-bold transition-all duration-300 ${
+                tab === t.k
+                  ? "bg-red-600 text-white shadow-md"
+                  : "text-slate-700 hover:bg-red-50 hover:text-red-600"
+              }`}
+            >
+              <t.icon size={18} /> {t.l}
+            </button>
+          ))}
+        </nav>
+
+        <Link href="/" className="mb-3 text-[12.5px] font-bold text-slate-500 hover:text-red-600">
+          ← View Storefront
+        </Link>
+        <button
+          onClick={async () => {
+            await fetch("/api/v1/admin/session", { method: "DELETE" });
+            setAuthed(false);
+          }}
+          className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-[12.5px] font-bold text-slate-700 hover:border-red-500 hover:text-red-600"
+        >
+          <LogOut size={16} /> Sign Out
+        </button>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="min-w-0 flex-1 p-4 sm:p-10">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-[26px] font-bold capitalize text-slate-900 sm:text-[32px]">{tab}</h1>
+            <p className="text-[12.5px] font-medium text-slate-500">
+              Mayilon Crackers Operations · Live Inventory, Orders & Payment Processing
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-600 px-4 py-2.5 text-[12.5px] font-bold text-white shadow-md transition hover:bg-red-700"
+            >
+              <ShoppingBag size={16} /> View Storefront ↗
+            </Link>
+            <div className="glass hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-50 px-4 py-2 text-[12px] font-bold text-emerald-700 shadow-sm sm:flex">
+              <ShieldCheck size={16} /> SUPER_ADMIN Active
+            </div>
+            <button
+              onClick={async () => {
+                await fetch("/api/v1/admin/session", { method: "DELETE" });
+                setAuthed(false);
+              }}
+              className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-slate-600 hover:text-red-600 lg:hidden"
+            >
+              <LogOut size={15} /> Exit
+            </button>
+          </div>
+        </header>
+
+        {/* Mobile Navigation Tabs & Storefront Button */}
+        <div className="mb-6 flex items-center justify-between gap-2 overflow-x-auto hide-scrollbar lg:hidden pb-1">
+          <div className="flex items-center gap-2">
+            {TABS.map((t) => (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k)}
+                className={`shrink-0 rounded-full px-4 py-2 text-[12.5px] font-bold ${
+                  tab === t.k
+                    ? "bg-red-600 text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                {t.l}
+              </button>
+            ))}
+          </div>
+          <Link
+            href="/"
+            className="shrink-0 flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-600 shadow-sm transition hover:bg-red-600 hover:text-white"
+          >
+            <ShoppingBag size={14} /> Storefront ↗
+          </Link>
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Dashboard Tab */}
+            {tab === "dashboard" && (
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <Kpi label="Total Pipeline" value={formatINR(k?.pipeline ?? 0, { compact: true })} sub={`${k?.estimateCount ?? 0} total orders`} icon={BarChart3} />
+                  <Kpi label="Today Sales" value={`${k?.todayCount ?? 0}`} sub={formatINR(k?.todayValue ?? 0)} icon={Activity} />
+                  <Kpi label="Pending Review" value={`${k?.pending ?? 0}`} sub="Awaiting packing/dispatch" icon={Receipt} accent="#EA580C" />
+                  <Kpi label="Conversion Rate" value={`${(k?.conversionRate ?? 0).toFixed(1)}%`} sub={`Avg ${formatINR(k?.avgValue ?? 0)}`} icon={CheckCircle2} accent="#16A34A" />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <Mini label="Products Live" value={products.length || (k?.products ?? 0)} />
+                  <Mini label="Dealer Applications" value={k?.dealers ?? 0} />
+                  <Mini label="Enquiries" value={k?.enquiries ?? 0} />
+                  <Mini label="Subscribers" value={k?.subscribers ?? 0} />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Panel title="Pipeline Status Breakdown">
+                    {(stats?.byStatus ?? []).length === 0 && <Empty>No estimates recorded yet.</Empty>}
+                    <div className="space-y-3">
+                      {(stats?.byStatus ?? []).map((s) => {
+                        const max = Math.max(...(stats?.byStatus ?? []).map((x) => x.count), 1);
+                        return (
+                          <div key={s.status}>
+                            <div className="mb-1 flex justify-between text-[13px] font-bold">
+                              <span className="text-slate-700">{s.status}</span>
+                              <span className="text-red-600">
+                                {s.count} orders · {formatINR(s.value, { compact: true })}
+                              </span>
+                            </div>
+                            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(s.count / max) * 100}%` }}
+                                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                                className="h-full rounded-full bg-gradient-to-r from-red-600 to-amber-500"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Panel>
+
+                  <Panel title="Low Stock Alerts">
+                    <div className="space-y-2.5">
+                      {(stats?.lowStock ?? []).map((p) => (
+                        <div key={p.sku} className="flex items-center justify-between text-[13px] font-bold">
+                          <span className="truncate pr-4 text-slate-700">{p.name}</span>
+                          <span className={p.stock < 200 ? "text-red-600" : "text-slate-500"}>
+                            {p.stock} units
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+            )}
+
+            {/* Orders & Estimates Tab */}
+            {tab === "estimates" && (
+              <Panel title={`Orders & Estimates (${estimates.length})`}>
+                {estimates.length === 0 && (
+                  <Empty>No orders submitted yet. Build an estimate from the storefront to see live orders here.</Empty>
+                )}
+                <div className="overflow-x-auto">
+                  {estimates.length > 0 && (
+                    <table className="w-full min-w-[1080px] text-[13.5px]">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-[2px] text-slate-500">
+                          <th className="py-3 px-3">Order Ref</th>
+                          <th className="py-3 px-3">Customer & Contact</th>
+                          <th className="py-3 px-3">Full Delivery Address</th>
+                          <th className="py-3 px-3 text-center">Items</th>
+                          <th className="py-3 px-3 text-right">Grand Total</th>
+                          <th className="py-3 px-3">Payment Status & Action</th>
+                          <th className="py-3 px-3">Fulfillment Workflow Buttons</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {estimates.map((e) => (
+                          <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50/80">
+                            {/* 1. Order Ref */}
+                            <td className="py-4 px-3 font-bold">
+                              <Link href={`/estimate/${e.estimateNumber}`} target="_blank" className="text-red-600 hover:underline flex items-center gap-1">
+                                {e.estimateNumber} <ExternalLink size={12} />
+                              </Link>
+                              <p className="text-[11px] font-medium text-slate-400">
+                                {new Date(e.createdAt).toLocaleDateString("en-IN")}
+                              </p>
+                              <span className="mt-1.5 inline-block rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10.5px] font-bold text-slate-700 uppercase">
+                                {e.status}
+                              </span>
+                            </td>
+
+                            {/* 2. Customer & Contact */}
+                            <td className="py-4 px-3">
+                              <p className="font-bold text-slate-900">{e.customerName}</p>
+                              <a href={`https://wa.me/91${e.mobile}`} target="_blank" rel="noreferrer" className="text-[11.5px] font-bold text-emerald-600 hover:underline flex items-center gap-1 mt-0.5">
+                                <MessageCircle size={13} /> +91 {e.mobile}
+                              </a>
+                            </td>
+
+                            {/* 3. Delivery Address */}
+                            <td className="py-4 px-3 text-slate-700 text-xs font-medium max-w-[220px]">
+                              <p className="line-clamp-2">{e.address || "Direct Factory Address"}</p>
+                              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                                {[e.city, e.district, e.state].filter(Boolean).join(", ")}
+                              </p>
+                            </td>
+
+                            {/* 4. Items */}
+                            <td className="py-4 px-3 text-center font-bold text-slate-800">{e.itemCount} pcs</td>
+
+                            {/* 5. Grand Total */}
+                            <td className="py-4 px-3 text-right font-bold text-red-600 font-display text-base">
+                              {formatINR(Number(e.grandTotal))}
+                            </td>
+
+                            {/* 6. Payment Status & Action */}
+                            <td className="py-4 px-3 min-w-[160px]">
+                              <div className="flex flex-col gap-1.5">
+                                {e.paymentStatus === "PAID" ? (
+                                  <>
+                                    <span className="rounded-xl bg-emerald-100 border border-emerald-300 px-3 py-1.5 text-[10.5px] font-extrabold text-emerald-800 text-center">
+                                      ✓ PAYMENT RECEIVED ({e.paymentMethod || "UPI"})
+                                    </span>
+                                    <button
+                                      onClick={() => togglePaymentStatus(e.estimateNumber, "UNPAID")}
+                                      className="text-[10px] font-bold text-slate-400 hover:text-red-600 underline text-center"
+                                    >
+                                      Mark Unreceived
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => togglePaymentStatus(e.estimateNumber, "PAID")}
+                                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-[11px] font-bold shadow-sm flex items-center justify-center gap-1"
+                                    >
+                                      <CheckCircle2 size={13} /> Mark Payment Received
+                                    </button>
+                                    <button
+                                      onClick={() => setPaymentModalOrder(e)}
+                                      className="rounded-xl bg-amber-50 border border-amber-300 px-2 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100 text-center"
+                                    >
+                                      💳 Pay Gateway Modal
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 7. Fulfillment Workflow Action Buttons */}
+                            <td className="py-4 px-3">
+                              <div className="flex flex-col gap-1.5 min-w-[165px]">
+                                {/* Step A: Package Ready */}
+                                <button
+                                  onClick={() => updateStatus(e.estimateNumber, "PACKAGE READY", e.mobile)}
+                                  className={`flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                                    e.status === "PACKAGE READY"
+                                      ? "bg-purple-600 text-white ring-2 ring-purple-300 shadow-sm"
+                                      : "bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-600 hover:text-white"
+                                  }`}
+                                >
+                                  <Package size={13} /> {e.status === "PACKAGE READY" ? "✓ Packaged" : "Mark Packaged"}
+                                </button>
+
+                                {/* Step B: Shipped */}
+                                <button
+                                  onClick={() => updateStatus(e.estimateNumber, "SHIPPED", e.mobile)}
+                                  className={`flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                                    e.status === "SHIPPED"
+                                      ? "bg-blue-600 text-white ring-2 ring-blue-300 shadow-sm"
+                                      : "bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white"
+                                  }`}
+                                >
+                                  <Truck size={13} /> {e.status === "SHIPPED" ? "✓ Shipped" : "Mark Shipped"}
+                                </button>
+
+                                {/* Step C: Out for Delivery */}
+                                <button
+                                  onClick={() => updateStatus(e.estimateNumber, "OUT FOR DELIVERY", e.mobile)}
+                                  className={`flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                                    e.status === "OUT FOR DELIVERY"
+                                      ? "bg-amber-600 text-white ring-2 ring-amber-300 shadow-sm"
+                                      : "bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-600 hover:text-white"
+                                  }`}
+                                >
+                                  <Truck size={13} /> {e.status === "OUT FOR DELIVERY" ? "✓ Out for Delivery" : "Mark Out for Delivery"}
+                                </button>
+
+                                {/* Step D: Delivered */}
+                                <button
+                                  onClick={() => updateStatus(e.estimateNumber, "DELIVERED", e.mobile)}
+                                  className={`flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                                    e.status === "DELIVERED"
+                                      ? "bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-sm"
+                                      : "bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                                  }`}
+                                >
+                                  <CheckCircle2 size={13} /> {e.status === "DELIVERED" ? "✓ Delivered" : "Mark Delivered"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </Panel>
+            )}
+
+            {/* Inventory Tab */}
+            {tab === "inventory" && (
+              <Panel
+                title={
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span>Product Catalogue ({filteredProducts.length})</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleClearAllProducts}
+                        className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                      >
+                        <Trash2 size={14} /> Clear All (Fresh Start)
+                      </button>
+                      <button
+                        onClick={openAddProduct}
+                        className="btn-gold flex items-center gap-2 px-5 py-2.5 text-[12.5px] uppercase font-bold"
+                      >
+                        <Plus size={16} /> Upload New Product
+                      </button>
+                    </div>
+                  </div>
+                }
+              >
+                <div className="mb-4 relative">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter by product name, SKU or category…"
+                    className="field pl-11 !bg-slate-50 !border-slate-200 !text-slate-900 font-bold"
+                  />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[780px] text-[13.5px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-[2px] text-slate-500">
+                        <th className="py-3">SKU</th>
+                        <th className="py-3">Product Name</th>
+                        <th className="py-3">Category</th>
+                        <th className="py-3 text-right">MRP</th>
+                        <th className="py-3 text-right">Offer Price</th>
+                        <th className="py-3 text-right">Stock</th>
+                        <th className="py-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProducts.map((p) => (
+                        <tr key={String(p.id)} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-3 font-bold text-slate-500">{p.sku}</td>
+                          <td className="py-3 font-bold text-slate-900">{p.name}</td>
+                          <td className="py-3 font-medium text-slate-600">{p.categoryName}</td>
+                          <td className="py-3 text-right text-slate-400 line-through">
+                            {formatINR(Number(p.mrp))}
+                          </td>
+                          <td className="py-3 text-right font-bold text-red-600">
+                            {formatINR(Number(p.offerPrice))}
+                          </td>
+                          <td
+                            className={`py-3 text-right font-bold ${
+                              Number(p.stock) < 200 ? "text-red-600" : "text-emerald-600"
+                            }`}
+                          >
+                            {p.stock}
+                          </td>
+                          <td className="py-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => openEditProduct(p)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11.5px] font-bold text-slate-700 hover:border-red-500 hover:text-red-600 shadow-sm"
+                              >
+                                <Edit size={13} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(p.id)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11.5px] font-bold text-slate-500 hover:border-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              >
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Panel>
+            )}
+
+            {/* Dealers Tab */}
+            {tab === "dealers" && (
+              <Panel title={`Dealer Applications (${dealers.length})`}>
+                {dealers.length === 0 && <Empty>No dealer applications yet.</Empty>}
+                <div className="space-y-3">
+                  {dealers.map((d) => (
+                    <div key={String(d.id)} className="rounded-2xl border border-red-500/15 bg-white p-5 shadow-md">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[15px] font-bold text-slate-900">{d.businessName}</p>
+                          <p className="text-[12.5px] font-medium text-slate-600">
+                            {d.contactName} · {d.mobile} · {d.city}, {d.state}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-[11px] font-bold text-blue-700">
+                            {d.tier}
+                          </span>
+                          <span className="rounded-full bg-red-50 border border-red-200 px-3 py-1 text-[11px] font-bold text-red-600">
+                            {d.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
+
+            {/* Enquiries Tab */}
+            {tab === "enquiries" && (
+              <Panel title={`Customer Enquiries (${enquiries.length})`}>
+                {enquiries.length === 0 && <Empty>No enquiries received yet.</Empty>}
+                <div className="space-y-3">
+                  {enquiries.map((e) => (
+                    <div key={String(e.id)} className="rounded-2xl border border-red-500/15 bg-white p-5 shadow-md">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[15px] font-bold text-slate-900">{e.name}</p>
+                        <span className="text-[12px] font-bold text-slate-500">{e.mobile}</span>
+                      </div>
+                      <p className="mt-1 text-[12px] font-bold uppercase tracking-[2px] text-red-600">{e.subject}</p>
+                      <p className="mt-2 text-[13.5px] font-medium text-slate-700">{e.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
+
+            {/* Analytics Tab */}
+            {tab === "analytics" && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Panel title="Revenue Funnel">
+                  <div className="space-y-4">
+                    {[
+                      { l: "Estimates Received", v: k?.estimateCount ?? 0 },
+                      { l: "Package Ready", v: stats?.byStatus.find((s) => s.status === "PACKAGE READY")?.count ?? 0 },
+                      { l: "Shipped", v: stats?.byStatus.find((s) => s.status === "SHIPPED")?.count ?? 0 },
+                      { l: "Delivered", v: stats?.byStatus.find((s) => s.status === "DELIVERED")?.count ?? 0 },
+                    ].map((s, i) => (
+                      <div key={s.l}>
+                        <div className="mb-1 flex justify-between text-[13px] font-bold">
+                          <span className="text-slate-700">{s.l}</span>
+                          <span className="text-red-600">{s.v}</span>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.max(6, 100 - i * 22)}%` }}
+                            transition={{ duration: 0.9, delay: i * 0.08 }}
+                            className="h-full rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-emerald-600"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Product Upload / Edit Modal */}
+      <AnimatePresence>
+        {productModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setProductModalOpen(false)}
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[32px] border border-red-500/20 bg-white p-8 shadow-2xl"
+            >
+              <button
+                onClick={() => setProductModalOpen(false)}
+                className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-red-600 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+
+              <h2 className="font-display text-2xl font-bold text-slate-900">
+                {editingProduct ? "Edit Product & Price" : "Upload New Product"}
+              </h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                Configure details, MRP, factory offer price, packing, and collection flags.
+              </p>
+
+              <form onSubmit={handleSaveProduct} className="mt-6 space-y-4">
+                <label className="block">
+                  <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Product Name *</span>
+                  <input
+                    required
+                    value={productForm.name}
+                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                    className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    placeholder="e.g. 10 Shot Sky Thunder"
+                  />
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">SKU Code *</span>
+                    <input
+                      required
+                      value={productForm.sku}
+                      onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Category *</span>
+                    <select
+                      value={productForm.categoryName}
+                      onChange={(e) => setProductForm({ ...productForm, categoryName: e.target.value })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    >
+                      {["ONE SOUND CRACKERS", "FLOWER POTS", "PREMIUM FOUNTAINS", "GROUND CHAKKARS", "ROCKETS", "SKY SHOTS", "SPARKLERS", "GIFT BOXES"].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">MRP (₹) *</span>
+                    <input
+                      type="number"
+                      required
+                      value={productForm.mrp}
+                      onChange={(e) => setProductForm({ ...productForm, mrp: Number(e.target.value) })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Offer Price (₹) *</span>
+                    <input
+                      type="number"
+                      required
+                      value={productForm.offerPrice}
+                      onChange={(e) => setProductForm({ ...productForm, offerPrice: Number(e.target.value) })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Packing</span>
+                    <input
+                      value={productForm.packing}
+                      onChange={(e) => setProductForm({ ...productForm, packing: e.target.value })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">MOQ</span>
+                    <input
+                      type="number"
+                      value={productForm.moq}
+                      onChange={(e) => setProductForm({ ...productForm, moq: Number(e.target.value) })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Stock</span>
+                    <input
+                      type="number"
+                      value={productForm.stock}
+                      onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })}
+                      className="field mt-1.5 !bg-slate-50 !border-slate-300 !text-slate-900 font-bold"
+                    />
+                  </label>
+                </div>
+
+                {/* Product Images (Image 1, Image 2, Image 3) */}
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <span className="text-[11px] font-bold uppercase tracking-[2px] text-red-600 block">
+                    📸 Product Photos (Upload up to 3 Images)
+                  </span>
+
+                  {/* Primary Cover Image 1 */}
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-700 block mb-1">1. Primary Cover Photo *</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          const res = await fetch("/api/v1/admin/upload", { method: "POST", body: fd });
+                          const json = await res.json();
+                          if (json.success) {
+                            setProductForm((prev) => ({ ...prev, imageUrl: json.data.url }));
+                            setNotificationToast("📸 Main Cover Photo 1 uploaded!");
+                            setTimeout(() => setNotificationToast(null), 3000);
+                          }
+                        }}
+                        className="field !bg-white !border-slate-300 font-bold text-xs file:mr-3 file:rounded-xl file:border-0 file:bg-red-600 file:px-3 file:py-1 file:text-xs file:font-bold file:text-white cursor-pointer"
+                      />
+                      {productForm.imageUrl && (
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={productForm.imageUrl} alt="P1" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      value={productForm.imageUrl}
+                      onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })}
+                      placeholder="Or paste Cover Photo 1 URL..."
+                      className="field mt-1.5 !bg-white !border-slate-300 font-bold text-xs"
+                    />
+                  </div>
+
+                  {/* Gallery Image 2 */}
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-700 block mb-1">2. Second Gallery Photo (Optional)</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          const res = await fetch("/api/v1/admin/upload", { method: "POST", body: fd });
+                          const json = await res.json();
+                          if (json.success) {
+                            setProductForm((prev) => ({ ...prev, imageUrl2: json.data.url }));
+                            setNotificationToast("📸 Gallery Photo 2 uploaded!");
+                            setTimeout(() => setNotificationToast(null), 3000);
+                          }
+                        }}
+                        className="field !bg-white !border-slate-300 font-bold text-xs file:mr-3 file:rounded-xl file:border-0 file:bg-slate-700 file:px-3 file:py-1 file:text-xs file:font-bold file:text-white cursor-pointer"
+                      />
+                      {productForm.imageUrl2 && (
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={productForm.imageUrl2} alt="P2" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      value={productForm.imageUrl2}
+                      onChange={(e) => setProductForm({ ...productForm, imageUrl2: e.target.value })}
+                      placeholder="Or paste Gallery Photo 2 URL..."
+                      className="field mt-1.5 !bg-white !border-slate-300 font-bold text-xs"
+                    />
+                  </div>
+
+                  {/* Gallery Image 3 */}
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-700 block mb-1">3. Third Gallery Photo (Optional)</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          const res = await fetch("/api/v1/admin/upload", { method: "POST", body: fd });
+                          const json = await res.json();
+                          if (json.success) {
+                            setProductForm((prev) => ({ ...prev, imageUrl3: json.data.url }));
+                            setNotificationToast("📸 Gallery Photo 3 uploaded!");
+                            setTimeout(() => setNotificationToast(null), 3000);
+                          }
+                        }}
+                        className="field !bg-white !border-slate-300 font-bold text-xs file:mr-3 file:rounded-xl file:border-0 file:bg-slate-700 file:px-3 file:py-1 file:text-xs file:font-bold file:text-white cursor-pointer"
+                      />
+                      {productForm.imageUrl3 && (
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={productForm.imageUrl3} alt="P3" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      value={productForm.imageUrl3}
+                      onChange={(e) => setProductForm({ ...productForm, imageUrl3: e.target.value })}
+                      placeholder="Or paste Gallery Photo 3 URL..."
+                      className="field mt-1.5 !bg-white !border-slate-300 font-bold text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Product Demo Video Section */}
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-50/50 p-4 space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[2px] text-amber-800 block">
+                    🎬 Product Demo Video (Video File Upload / MP4 / YouTube Link)
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        const res = await fetch("/api/v1/admin/upload", { method: "POST", body: fd });
+                        const json = await res.json();
+                        if (json.success) {
+                          setProductForm((prev) => ({ ...prev, videoUrl: json.data.url }));
+                          setNotificationToast("🎬 Product Demo Video uploaded!");
+                          setTimeout(() => setNotificationToast(null), 3000);
+                        }
+                      }}
+                      className="field !bg-white !border-slate-300 font-bold text-xs file:mr-3 file:rounded-xl file:border-0 file:bg-amber-600 file:px-3 file:py-1 file:text-xs file:font-bold file:text-white cursor-pointer"
+                    />
+                  </div>
+                  <input
+                    value={productForm.videoUrl}
+                    onChange={(e) => setProductForm({ ...productForm, videoUrl: e.target.value })}
+                    placeholder="Or paste direct Video URL or YouTube link..."
+                    className="field !bg-white !border-slate-300 font-bold text-xs"
+                  />
+                  {productForm.videoUrl && (
+                    <p className="text-[11px] font-bold text-amber-800 pt-1">
+                      ✓ Demo Video Linked: {productForm.videoUrl.slice(0, 45)}...
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={productForm.isNewArrival}
+                      onChange={(e) => setProductForm({ ...productForm, isNewArrival: e.target.checked })}
+                      className="accent-red-600"
+                    />
+                    New Arrival
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={productForm.isBestSeller}
+                      onChange={(e) => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
+                      className="accent-red-600"
+                    />
+                    Best Seller
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={productForm.isPremium}
+                      onChange={(e) => setProductForm({ ...productForm, isPremium: e.target.checked })}
+                      className="accent-red-600"
+                    />
+                    Premium Collection
+                  </label>
+                </div>
+
+                <button type="submit" className="btn-gold mt-6 w-full py-3.5 text-sm uppercase font-bold">
+                  {editingProduct ? "Save Product Changes" : "Create & Publish Product"}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Payment Gateway Modal */}
+      <AnimatePresence>
+        {paymentModalOrder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPaymentModalOrder(null)}
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[32px] border border-red-500/20 bg-white p-8 shadow-2xl text-center"
+            >
+              <button
+                onClick={() => setPaymentModalOrder(null)}
+                className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-red-600 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+
+              <QrCode size={36} className="mx-auto text-red-600" />
+              <h2 className="mt-3 font-display text-xl font-bold text-slate-900">Payment Gateway</h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                Confirm payment for Order <span className="font-bold text-red-600">{paymentModalOrder.estimateNumber}</span> ({formatINR(Number(paymentModalOrder.grandTotal))})
+              </p>
+
+              <div className="mt-6 rounded-2xl border border-red-500/20 bg-red-50 p-4 text-center">
+                {/* SVG QR Code Simulation */}
+                <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-xl bg-white border border-slate-200 p-2 shadow-inner">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=mayilon@upi&pn=Mayilon%20Crackers&am=${paymentModalOrder.grandTotal}`}
+                    alt="All UPI QR Code"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <p className="mt-2 text-[11px] font-bold text-slate-700">Scan via GPay, PhonePe, Paytm or BHIM</p>
+                <p className="text-[10px] text-slate-500">UPI ID: mayiloncrackers@sbi</p>
+              </div>
+
+              <div className="mt-6 space-y-2.5">
+                <button
+                  onClick={() => handleMarkPaid(paymentModalOrder.estimateNumber, "Dynamic All-UPI QR")}
+                  className="btn-gold w-full py-3 text-xs uppercase font-bold"
+                >
+                  ✓ Confirm Payment via UPI QR
+                </button>
+                <button
+                  onClick={() => handleMarkPaid(paymentModalOrder.estimateNumber, "Razorpay Gateway")}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-900 py-3 text-xs font-bold uppercase text-white hover:bg-slate-800"
+                >
+                  Confirm via Razorpay
+                </button>
+                <button
+                  onClick={() => handleMarkPaid(paymentModalOrder.estimateNumber, "PayU Gateway")}
+                  className="w-full rounded-2xl border border-slate-200 bg-blue-600 py-3 text-xs font-bold uppercase text-white hover:bg-blue-700"
+                >
+                  Confirm via PayU
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  accent = "#DC2626",
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
+  accent?: string;
+}) {
+  return (
+    <div className="glass rounded-[24px] border border-red-500/15 bg-white p-6 shadow-md">
+      <div className="flex items-start justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-[2.5px] text-slate-500">{label}</p>
+        <Icon size={20} style={{ color: accent }} />
+      </div>
+      <p className="mt-3 font-display text-[27px] font-bold text-slate-900">{value}</p>
+      <p className="text-[12px] font-medium text-slate-500">{sub}</p>
+    </div>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="glass rounded-[20px] border border-red-500/15 bg-white p-5 shadow-sm">
+      <p className="text-[10.5px] font-bold uppercase tracking-[2px] text-slate-500">{label}</p>
+      <p className="mt-1.5 font-display text-[21px] font-bold text-red-600">{value}</p>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string | React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="glass rounded-[26px] border border-red-500/15 bg-white p-6 shadow-md">
+      {typeof title === "string" ? (
+        <h3 className="mb-5 font-display text-[16px] font-bold text-slate-900">{title}</h3>
+      ) : (
+        <div className="mb-5">{title}</div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="py-6 text-center text-[13px] font-medium text-slate-400">{children}</p>;
+}
