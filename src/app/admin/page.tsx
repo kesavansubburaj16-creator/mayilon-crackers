@@ -24,6 +24,7 @@ import {
   Send,
   ShieldCheck,
   ShoppingBag,
+  Trash2,
   Truck,
   X,
 } from "lucide-react";
