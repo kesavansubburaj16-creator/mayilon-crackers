@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { BrowserControls } from "./BrowserControls";
 import { ProductCard, type CardProduct } from "./ProductCard";
