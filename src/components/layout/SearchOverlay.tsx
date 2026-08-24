@@ -69,34 +69,43 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="glass-dark w-full max-w-2xl overflow-hidden rounded-3xl"
+            className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-red-500/25 bg-white p-3 shadow-2xl"
           >
-            <div className="flex items-center gap-3 border-b border-gold/15 px-5 py-4">
-              <Search size={18} className="text-gold" />
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50/90 px-5 py-4 rounded-[24px]">
+              <Search size={20} className="text-red-600 shrink-0 font-bold" />
               <input
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search 60+ products, SKU codes or categories…"
-                className="flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/35"
+                className="flex-1 bg-transparent text-[16px] font-bold text-slate-900 outline-none placeholder:text-slate-400"
               />
-              <button onClick={onClose} aria-label="Close search" className="text-white/40 hover:text-gold">
-                <X size={18} />
+              {q && (
+                <button onClick={() => setQ("")} className="text-slate-400 hover:text-red-600 p-1">
+                  <X size={16} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close search"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-red-600 hover:text-white transition"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <div className="max-h-[52vh] overflow-y-auto p-3">
+            <div className="max-h-[52vh] overflow-y-auto p-3 hide-scrollbar">
               {q.trim().length < 2 && (
                 <div className="p-3">
-                  <p className="mb-3 text-[11px] uppercase tracking-[3px] text-white/40">
-                    Popular searches
+                  <p className="mb-3.5 text-[11px] font-bold uppercase tracking-[2.5px] text-slate-700">
+                    Popular Searches
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {QUICK.map((k) => (
                       <button
                         key={k}
                         onClick={() => setQ(k)}
-                        className="rounded-full border border-gold/25 px-3.5 py-1.5 text-xs text-white/70 transition hover:border-gold hover:text-gold"
+                        className="rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-800 transition hover:border-red-600 hover:bg-red-600 hover:text-white shadow-sm"
                       >
                         {k}
                       </button>
@@ -105,10 +114,12 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                 </div>
               )}
 
-              {loading && <p className="p-4 text-sm text-white/50">Searching…</p>}
+              {loading && <p className="p-6 text-center text-sm font-bold text-slate-600">Searching products…</p>}
 
               {!loading && q.trim().length >= 2 && hits.length === 0 && (
-                <p className="p-4 text-sm text-white/50">No products matched “{q}”.</p>
+                <p className="p-6 text-center text-sm font-bold text-slate-600">
+                  No products matched &quot;{q}&quot;.
+                </p>
               )}
 
               {hits.map((h) => (
@@ -116,24 +127,24 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                   key={h.id}
                   href={`/products/${h.slug}`}
                   onClick={onClose}
-                  className="flex items-center gap-4 rounded-2xl p-3 transition hover:bg-gold/10"
+                  className="flex items-center gap-4 rounded-2xl border border-transparent p-3 transition hover:border-red-200 hover:bg-red-50/70"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={h.imageUrl ?? ""}
+                    src={h.imageUrl ?? "/images/placeholder.jpg"}
                     alt={h.name}
-                    className="h-12 w-12 rounded-xl object-cover"
+                    className="h-12 w-12 rounded-xl object-cover border border-slate-200"
                     loading="lazy"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{h.name}</p>
-                    <p className="text-[11px] uppercase tracking-[2px] text-white/40">
+                    <p className="truncate text-sm font-bold text-slate-900">{h.name}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">
                       {h.sku} · {h.categoryName}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gold">{formatINR(Number(h.offerPrice))}</p>
-                    <p className="text-[11px] text-white/35 line-through">{formatINR(Number(h.mrp))}</p>
+                    <p className="text-sm font-bold text-red-600">{formatINR(Number(h.offerPrice))}</p>
+                    <p className="text-[11px] font-medium text-slate-400 line-through">{formatINR(Number(h.mrp))}</p>
                   </div>
                 </Link>
               ))}
