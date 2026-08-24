@@ -43,7 +43,43 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
       try {
         const res = await fetch(`/api/v1/search?q=${encodeURIComponent(term)}`);
         const json = await res.json();
-        setHits(json?.data?.products ?? []);
+        let list: Hit[] = json?.data?.products ?? [];
+
+        // Merge custom products from local storage so newly added admin products (e.g. karam) appear immediately!
+        try {
+          const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+          if (localRaw) {
+            const customArr = JSON.parse(localRaw);
+            if (Array.isArray(customArr)) {
+              const lowerTerm = term.toLowerCase();
+              const customMatches = customArr
+                .filter(
+                  (c: any) =>
+                    c &&
+                    (String(c.name || "").toLowerCase().includes(lowerTerm) ||
+                      String(c.sku || "").toLowerCase().includes(lowerTerm) ||
+                      String(c.categoryName || "").toLowerCase().includes(lowerTerm)),
+                )
+                .map((c: any) => ({
+                  id: String(c.id || `prod-${Date.now()}`),
+                  name: String(c.name || "Item"),
+                  slug: String(c.slug || "item"),
+                  sku: String(c.sku || "MYL-PROD"),
+                  offerPrice: String(c.offerPrice || c.mrp || "100"),
+                  mrp: String(c.mrp || "100"),
+                  imageUrl: c.imageUrl ? String(c.imageUrl) : null,
+                  categoryName: String(c.categoryName || "Special Fireworks"),
+                }));
+
+              const map = new Map<string, Hit>();
+              for (const h of list) map.set(h.id, h);
+              for (const cm of customMatches) map.set(cm.id, cm);
+              list = Array.from(map.values());
+            }
+          }
+        } catch (err) {}
+
+        setHits(list);
       } catch {
         setHits([]);
       } finally {
