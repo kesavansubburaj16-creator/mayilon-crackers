@@ -42,10 +42,13 @@ export function Navbar() {
   // Customer Login Modal State
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [userMobile, setUserMobile] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("mayilon_user_mobile");
-    if (saved) setUserMobile(saved);
+    const savedMob = localStorage.getItem("mayilon_user_mobile");
+    const savedName = localStorage.getItem("mayilon_user_name");
+    if (savedMob) setUserMobile(savedMob);
+    if (savedName) setUserName(savedName);
   }, []);
 
   useEffect(() => {
@@ -68,14 +71,20 @@ export function Navbar() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const handleLoginSuccess = (mobile: string) => {
+  const handleLoginSuccess = (mobile: string, name?: string) => {
     localStorage.setItem("mayilon_user_mobile", mobile);
     setUserMobile(mobile);
+    if (name) {
+      localStorage.setItem("mayilon_user_name", name);
+      setUserName(name);
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("mayilon_user_mobile");
+    localStorage.removeItem("mayilon_user_name");
     setUserMobile(null);
+    setUserName(null);
     setLoginModalOpen(false);
   };
 
@@ -167,7 +176,7 @@ export function Navbar() {
               >
                 <User size={16} className="text-red-600" />
                 <span className="hidden sm:inline">
-                  {userMobile ? `+91 ${userMobile.slice(0, 5)}...` : "Login"}
+                  {userName ? userName : userMobile ? `+91 ${userMobile.slice(0, 5)}...` : "Login"}
                 </span>
               </button>
 
@@ -208,7 +217,7 @@ export function Navbar() {
                       }}
                       className="btn-ghost flex items-center justify-center gap-2 py-3 text-sm font-bold uppercase"
                     >
-                      <User size={16} /> {userMobile ? `Logged in (+91 ${userMobile})` : "Customer Login"}
+                      <User size={16} /> {userName ? `Logged in (${userName})` : userMobile ? `Logged in (+91 ${userMobile})` : "Customer Login"}
                     </button>
                   </div>
                 </nav>

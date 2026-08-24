@@ -11,6 +11,7 @@ import {
   Clock,
   Edit,
   ExternalLink,
+  FileSpreadsheet,
   Handshake,
   LayoutDashboard,
   LogOut,
@@ -101,7 +102,30 @@ const TABS = [
   { k: "analytics", l: "Analytics", icon: BarChart3 },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["k"];
+function downloadCsv(data: any[], filename: string) {
+  if (!data || data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    headers.join(","),
+    ...data.map((row) =>
+      headers
+        .map((header) => {
+          const val = row[header] ?? "";
+          const escaped = String(val).replace(/"/g, '""');
+          return `"${escaped}"`;
+        })
+        .join(","),
+    ),
+  ];
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -227,12 +251,44 @@ export default function AdminPage() {
 
     try {
       const d = await fetch("/api/v1/dealers").then((r) => r.json()).catch(() => null);
-      if (d?.success) setDealers(d.data.items);
+      let list = d?.success && Array.isArray(d?.data?.items) ? d.data.items : [];
+      try {
+        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_dealer_applications") : null;
+        if (localRaw) {
+          const localDealers = JSON.parse(localRaw);
+          if (Array.isArray(localDealers)) {
+            const map = new Map();
+            for (const item of list) map.set(item.id, item);
+            for (const item of localDealers) {
+              if (item && !map.has(item.id)) map.set(item.id, item);
+            }
+            list = Array.from(map.values());
+          }
+        }
+      } catch (err) {}
+      list.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setDealers(list);
     } catch {}
 
     try {
       const q = await fetch("/api/v1/enquiries").then((r) => r.json()).catch(() => null);
-      if (q?.success) setEnquiries(q.data.items);
+      let list = q?.success && Array.isArray(q?.data?.items) ? q.data.items : [];
+      try {
+        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_customer_enquiries") : null;
+        if (localRaw) {
+          const localEnquiries = JSON.parse(localRaw);
+          if (Array.isArray(localEnquiries)) {
+            const map = new Map();
+            for (const item of list) map.set(item.id, item);
+            for (const item of localEnquiries) {
+              if (item && !map.has(item.id)) map.set(item.id, item);
+            }
+            list = Array.from(map.values());
+          }
+        }
+      } catch (err) {}
+      list.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setEnquiries(list);
     } catch {}
   }, []);
 
@@ -989,49 +1045,194 @@ export default function AdminPage() {
 
             {/* Dealers Tab */}
             {tab === "dealers" && (
-              <Panel title={`Dealer Applications (${dealers.length})`}>
-                {dealers.length === 0 && <Empty>No dealer applications yet.</Empty>}
-                <div className="space-y-3">
-                  {dealers.map((d) => (
-                    <div key={String(d.id)} className="rounded-2xl border border-red-500/15 bg-white p-5 shadow-md">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[15px] font-bold text-slate-900">{d.businessName}</p>
-                          <p className="text-[12.5px] font-medium text-slate-600">
-                            {d.contactName} · {d.mobile} · {d.city}, {d.state}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-[11px] font-bold text-blue-700">
-                            {d.tier}
-                          </span>
-                          <span className="rounded-full bg-red-50 border border-red-200 px-3 py-1 text-[11px] font-bold text-red-600">
-                            {d.status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <Panel
+                title={
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span>Dealer Applications ({dealers.length})</span>
+                    {dealers.length > 0 && (
+                      <button
+                        onClick={() =>
+                          downloadCsv(
+                            dealers.map((d: any) => ({
+                              Date: d.createdAt ? new Date(d.createdAt).toLocaleString("en-IN") : "Recent",
+                              "Firm / Business Name": d.businessName || "-",
+                              "Contact Person": d.contactName || "-",
+                              Mobile: d.mobile || "-",
+                              Email: d.email || "-",
+                              "GST Number": d.gstNumber || "-",
+                              "Explosives Licence": d.licenseNumber || "-",
+                              City: d.city || "-",
+                              State: d.state || "-",
+                              "Requested Tier": d.tier || "-",
+                              "Expected Volume": d.expectedVolume || "-",
+                              Status: d.status || "PENDING",
+                            })),
+                            `Mayilon_Dealer_Applications_${new Date().toISOString().slice(0, 10)}.csv`
+                          )
+                        }
+                        className="btn-gold flex items-center gap-2 px-4 py-2 text-[12px] uppercase font-bold"
+                      >
+                        <FileSpreadsheet size={15} /> Download Excel (.csv)
+                      </button>
+                    )}
+                  </div>
+                }
+              >
+                {dealers.length === 0 && <Empty>No dealer applications received yet.</Empty>}
+                {dealers.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[980px] text-[13px]">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-[2px] text-slate-500">
+                          <th className="py-3 px-3">Date</th>
+                          <th className="py-3 px-3">Business & Contact</th>
+                          <th className="py-3 px-3">Location</th>
+                          <th className="py-3 px-3">Licence & GST</th>
+                          <th className="py-3 px-3">Tier & Volume</th>
+                          <th className="py-3 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dealers.map((d: any) => (
+                          <tr key={String(d.id)} className="border-b border-slate-100 hover:bg-slate-50/80">
+                            <td className="py-4 px-3 font-medium text-slate-500 text-xs">
+                              {d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-IN") : "Recent"}
+                            </td>
+                            <td className="py-4 px-3 font-bold text-slate-900">
+                              <p className="text-[14px] text-slate-900">{d.businessName}</p>
+                              <p className="text-[12px] text-slate-600 font-medium">{d.contactName} · <a href={`https://wa.me/91${d.mobile}`} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">+91 {d.mobile}</a></p>
+                              {d.email && <p className="text-[11px] text-slate-400 font-medium">{d.email}</p>}
+                            </td>
+                            <td className="py-4 px-3 text-slate-700 font-medium text-xs">
+                              <p className="font-bold text-slate-800">{d.city || "Sivakasi Region"}</p>
+                              <p className="text-slate-500">{d.state}</p>
+                            </td>
+                            <td className="py-4 px-3 text-slate-700 font-medium text-xs">
+                              <p><span className="text-slate-400 font-bold">GST:</span> {d.gstNumber || "N/A"}</p>
+                              <p><span className="text-slate-400 font-bold">Licence:</span> {d.licenseNumber || "N/A"}</p>
+                            </td>
+                            <td className="py-4 px-3 text-slate-800 font-bold text-xs">
+                              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10.5px] font-bold text-blue-700 uppercase block w-fit">
+                                {d.tier}
+                              </span>
+                              <p className="text-[11px] text-slate-500 mt-1 font-medium">{d.expectedVolume}</p>
+                            </td>
+                            <td className="py-4 px-3 text-center">
+                              <span className="rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-[11px] font-bold text-amber-800 uppercase">
+                                {d.status || "PENDING"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </Panel>
             )}
 
             {/* Enquiries Tab */}
             {tab === "enquiries" && (
-              <Panel title={`Customer Enquiries (${enquiries.length})`}>
-                {enquiries.length === 0 && <Empty>No enquiries received yet.</Empty>}
-                <div className="space-y-3">
-                  {enquiries.map((e) => (
-                    <div key={String(e.id)} className="rounded-2xl border border-red-500/15 bg-white p-5 shadow-md">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[15px] font-bold text-slate-900">{e.name}</p>
-                        <span className="text-[12px] font-bold text-slate-500">{e.mobile}</span>
-                      </div>
-                      <p className="mt-1 text-[12px] font-bold uppercase tracking-[2px] text-red-600">{e.subject}</p>
-                      <p className="mt-2 text-[13.5px] font-medium text-slate-700">{e.message}</p>
-                    </div>
-                  ))}
-                </div>
+              <Panel
+                title={
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span>Customer & B2B Enquiries ({enquiries.length + dealers.length})</span>
+                    {(enquiries.length > 0 || dealers.length > 0) && (
+                      <button
+                        onClick={() => {
+                          const combined = [
+                            ...enquiries.map((e: any) => ({
+                              Type: "General Enquiry",
+                              Date: e.createdAt ? new Date(e.createdAt).toLocaleString("en-IN") : "Recent",
+                              Name: e.name || "-",
+                              Mobile: e.mobile || "-",
+                              Email: e.email || "-",
+                              Subject: e.subject || "-",
+                              Message: e.message || "-",
+                              Status: e.status || "NEW",
+                            })),
+                            ...dealers.map((d: any) => ({
+                              Type: "Dealer Application",
+                              Date: d.createdAt ? new Date(d.createdAt).toLocaleString("en-IN") : "Recent",
+                              Name: `${d.businessName} (${d.contactName})`,
+                              Mobile: d.mobile || "-",
+                              Email: d.email || "-",
+                              Subject: `Dealer Tier: ${d.tier}`,
+                              Message: `GST: ${d.gstNumber || "N/A"} | Licence: ${d.licenseNumber || "N/A"} | City: ${d.city || ""}, ${d.state} | Volume: ${d.expectedVolume || ""}`,
+                              Status: d.status || "PENDING",
+                            })),
+                          ];
+                          downloadCsv(combined, `Mayilon_All_Enquiries_${new Date().toISOString().slice(0, 10)}.csv`);
+                        }}
+                        className="btn-gold flex items-center gap-2 px-4 py-2 text-[12px] uppercase font-bold"
+                      >
+                        <FileSpreadsheet size={15} /> Download Excel (.csv)
+                      </button>
+                    )}
+                  </div>
+                }
+              >
+                {enquiries.length === 0 && dealers.length === 0 && <Empty>No enquiries received yet.</Empty>}
+                {(enquiries.length > 0 || dealers.length > 0) && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-[13px]">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-[2px] text-slate-500">
+                          <th className="py-3 px-3">Date & Type</th>
+                          <th className="py-3 px-3">Customer / Contact</th>
+                          <th className="py-3 px-3">Subject / Tier</th>
+                          <th className="py-3 px-3">Details / Message</th>
+                          <th className="py-3 px-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ...enquiries.map((e: any) => ({ ...e, type: "General Enquiry" })),
+                          ...dealers.map((d: any) => ({
+                            id: d.id,
+                            name: `${d.businessName} (${d.contactName})`,
+                            mobile: d.mobile,
+                            email: d.email,
+                            subject: `Dealer Application (${d.tier})`,
+                            message: `Location: ${d.city || ""}, ${d.state} · Volume: ${d.expectedVolume || ""} · GST: ${d.gstNumber || "N/A"}`,
+                            status: d.status || "PENDING",
+                            createdAt: d.createdAt,
+                            type: "Dealer Application",
+                          })),
+                        ]
+                          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                          .map((item: any) => (
+                            <tr key={String(item.id)} className="border-b border-slate-100 hover:bg-slate-50/80">
+                              <td className="py-4 px-3 font-medium text-slate-500 text-xs min-w-[130px]">
+                                <span className="font-bold text-slate-700 block">{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-IN") : "Recent"}</span>
+                                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full inline-block mt-1 ${item.type === "Dealer Application" ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}`}>
+                                  {item.type}
+                                </span>
+                              </td>
+                              <td className="py-4 px-3 font-bold text-slate-900 min-w-[180px]">
+                                <p className="text-[14px] text-slate-900">{item.name}</p>
+                                <a href={`https://wa.me/91${item.mobile}`} target="_blank" rel="noreferrer" className="text-[12px] text-emerald-600 font-bold hover:underline flex items-center gap-1 mt-0.5">
+                                  <MessageCircle size={12} /> +91 {item.mobile}
+                                </a>
+                                {item.email && <p className="text-[11px] text-slate-400 font-medium">{item.email}</p>}
+                              </td>
+                              <td className="py-4 px-3 text-red-600 font-bold text-xs uppercase tracking-wider min-w-[160px]">
+                                {item.subject}
+                              </td>
+                              <td className="py-4 px-3 text-slate-700 text-xs font-medium max-w-[320px]">
+                                <p className="line-clamp-3">{item.message}</p>
+                              </td>
+                              <td className="py-4 px-3 text-center">
+                                <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-700 uppercase">
+                                  {item.status || "NEW"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </Panel>
             )}
 

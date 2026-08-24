@@ -31,11 +31,11 @@ export function AuthModal({
   isOpen: boolean;
   onClose: () => void;
   userMobile: string | null;
-  onLoginSuccess: (mobile: string) => void;
+  onLoginSuccess: (mobile: string, name?: string) => void;
   onLogout: () => void;
 }) {
   const [authType, setAuthType] = useState<"PHONE" | "EMAIL">("PHONE");
-  const [step, setStep] = useState<"MOBILE" | "OTP">("MOBILE");
+  const [step, setStep] = useState<"MOBILE" | "OTP" | "NAME_PROMPT">("MOBILE");
   const [mobile, setMobile] = useState("");
   const [userEmailInput, setUserEmailInput] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -45,6 +45,7 @@ export function AuthModal({
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
 
   // User Profile Form State
   const [fullName, setFullName] = useState("Valued Customer");
@@ -125,7 +126,13 @@ export function AuthModal({
     }
     setEmailSent(true);
     setEmail(userEmailInput);
-    onLoginSuccess(userEmailInput);
+    const existingName = localStorage.getItem("mayilon_user_name");
+    if (existingName && existingName !== "Valued Customer" && existingName.trim().length > 0) {
+      onLoginSuccess(userEmailInput, existingName);
+      onClose();
+    } else {
+      setStep("NAME_PROMPT");
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -165,7 +172,25 @@ export function AuthModal({
       setError(json.message);
       return;
     }
-    onLoginSuccess(mobile.trim());
+    const existingName = localStorage.getItem("mayilon_user_name");
+    if (existingName && existingName !== "Valued Customer" && existingName.trim().length > 0) {
+      onLoginSuccess(mobile.trim(), existingName);
+      onClose();
+    } else {
+      setStep("NAME_PROMPT");
+    }
+  };
+
+  const handleCompleteNameStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = nameInput.trim();
+    if (!cleanName) {
+      setError("Please enter your full name to complete login");
+      return;
+    }
+    localStorage.setItem("mayilon_user_name", cleanName);
+    setFullName(cleanName);
+    onLoginSuccess(mobile.trim() || userEmailInput, cleanName);
     onClose();
   };
 
@@ -439,6 +464,44 @@ export function AuthModal({
                   className="btn-gold w-full py-4 text-sm uppercase font-bold tracking-wider"
                 >
                   {busy ? "Verifying…" : "VERIFY"}
+                </button>
+              </form>
+            ) : (
+              /* STEP 3: FULL NAME PROMPT AFTER VERIFICATION */
+              <form onSubmit={handleCompleteNameStep} className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white font-bold shadow-md">
+                    <User size={24} />
+                  </div>
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-slate-900">Enter Your Full Name</h2>
+                    <p className="text-xs font-medium text-slate-600">
+                      OTP verified! Enter your name to complete registration & login.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700 block">
+                    Full Name *
+                  </label>
+                  <input
+                    required
+                    autoFocus
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="field w-full !bg-slate-50 !border-slate-300 !text-slate-900 font-bold text-base"
+                  />
+                </div>
+
+                {error && <p className="text-xs font-bold text-red-600">{error}</p>}
+
+                <button
+                  type="submit"
+                  className="btn-gold w-full py-4 text-sm uppercase font-bold tracking-wider"
+                >
+                  COMPLETE LOGIN & CONTINUE →
                 </button>
               </form>
             )
