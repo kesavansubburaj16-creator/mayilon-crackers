@@ -102,6 +102,8 @@ const TABS = [
   { k: "analytics", l: "Analytics", icon: BarChart3 },
 ] as const;
 
+type TabKey = (typeof TABS)[number]["k"];
+
 function downloadCsv(data: any[], filename: string) {
   if (!data || data.length === 0) return;
   const headers = Object.keys(data[0]);
