@@ -154,9 +154,6 @@ export function ProductBrowser({
                     {Number(p.stock) <= 0 ? "Out of Stock" : <Plus size={16} />}
                   </button>
                 </div>
-                    <Plus size={18} />
-                  </button>
-                </div>
               </div>
             ))}
           </div>
