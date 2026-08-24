@@ -296,14 +296,14 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
     <>
       <div className="glass overflow-hidden rounded-[34px] border border-red-500/20 bg-white shadow-xl">
         <div className="grid lg:grid-cols-[1.5fr_1fr]">
-          <div className="border-b border-red-500/12 p-3.5 sm:p-7 lg:border-b-0 lg:border-r">
+          <div className="w-full min-w-0 border-b border-red-500/12 p-2.5 sm:p-6 lg:border-b-0 lg:border-r">
             <div className="relative">
               <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search all products to price instantly..."
-                className="field pl-11 pr-10 !border-red-500/25 !bg-slate-50 !text-slate-900 focus:!border-red-600 font-bold"
+                className="field pl-11 pr-10 !border-red-500/25 !bg-slate-50 !text-slate-900 focus:!border-red-600 font-bold text-sm"
               />
               {q && (
                 <button
@@ -320,23 +320,24 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
               {q && <button onClick={() => setQ("")} className="text-red-600 hover:underline">Clear Search</button>}
             </div>
 
-            <div className="mt-3 max-h-[500px] space-y-2.5 overflow-y-auto pr-1 hide-scrollbar">
+            <div className="mt-3 max-h-[500px] space-y-2 overflow-y-auto pr-1 hide-scrollbar">
               {filtered.length === 0 ? (
-                <div className="p-10 text-center text-slate-500 font-medium">
+                <div className="p-8 text-center text-slate-500 font-medium">
                   No products match &quot;{q}&quot;. Try searching for &quot;Laxmi&quot;, &quot;Sparklers&quot;, or &quot;Fancy&quot;.
                 </div>
               ) : (
                 filtered.map((p) => {
                   const n = qty[p.id] ?? 0;
+                  const isOut = Number((p as any).stock) <= 0;
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-2 sm:gap-3.5 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 sm:p-3 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
+                      className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
                     >
                       {/* Interactive Zoomable Product Thumbnail */}
                       <div
                         onClick={() => setZoomProduct(p)}
-                        className="group relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm"
+                        className="group relative h-10 w-10 sm:h-12 sm:w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm"
                         title="Click to Zoom Image"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -345,72 +346,64 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                           alt={p.name}
                           loading="lazy"
                           className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-110 ${
-                            Number((p as any).stock) <= 0 ? "grayscale opacity-60" : ""
+                            isOut ? "grayscale opacity-60" : ""
                           }`}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 opacity-0 transition-opacity group-hover:opacity-100">
-                          <ZoomIn size={15} className="text-white" />
+                          <ZoomIn size={14} className="text-white" />
                         </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] sm:text-[13.5px] font-bold text-slate-900">{p.name}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] sm:text-[11px]">
-                          <span className="font-bold text-red-600 sm:hidden">
+                        <p className="truncate text-[12.5px] sm:text-[13.5px] font-bold text-slate-900">{p.name}</p>
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px]">
+                          <span className="font-bold text-red-600 sm:hidden shrink-0">
                             {formatINR(Number(p.offerPrice))}
                           </span>
-                          <span className="uppercase tracking-[1px] text-slate-500 font-medium truncate">
+                          <span className="uppercase tracking-[0.5px] text-slate-500 font-medium truncate">
                             {p.sku} · {p.packing}
                           </span>
-                          {Number((p as any).stock) <= 0 && (
-                            <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white shrink-0">
-                              Out of Stock
-                            </span>
-                          )}
                         </div>
                       </div>
-                      <p className="hidden text-sm font-bold text-red-600 sm:block shrink-0">
+
+                      <p className="hidden text-sm font-bold text-red-600 sm:block shrink-0 px-1">
                         {formatINR(Number(p.offerPrice))}
                       </p>
-                      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-                        <button
-                          disabled={Number((p as any).stock) <= 0 || n <= 0}
-                          aria-label="decrease"
-                          onClick={() => {
-                            if (Number((p as any).stock) <= 0) return;
-                            const next = Math.max(0, n - 1);
-                            setQty((s) => ({ ...s, [p.id]: next }));
-                            if (next > 0) {
+
+                      {isOut ? (
+                        <span className="shrink-0 rounded-xl bg-slate-900 px-2 py-1 text-[9.5px] font-extrabold uppercase text-white shadow-sm">
+                          OUT OF STOCK
+                        </span>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            disabled={n <= 0}
+                            aria-label="decrease"
+                            onClick={() => {
+                              const next = Math.max(0, n - 1);
+                              setQty((s) => ({ ...s, [p.id]: next }));
+                              if (next > 0) {
+                                add({ ...p, price: p.offerPrice } as any, next);
+                              }
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-red-500/30 text-red-600 disabled:opacity-30 disabled:border-slate-200 disabled:text-slate-400 hover:bg-red-600 hover:text-white active:scale-90"
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span className="w-5 text-center text-xs font-bold tabular-nums text-slate-900">{n}</span>
+                          <button
+                            aria-label="increase"
+                            onClick={() => {
+                              const next = n + 1;
+                              setQty((s) => ({ ...s, [p.id]: next }));
                               add({ ...p, price: p.offerPrice } as any, next);
-                            }
-                          }}
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                            Number((p as any).stock) <= 0
-                              ? "border-slate-200 text-slate-300 cursor-not-allowed opacity-40"
-                              : "border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
-                          }`}
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="w-6 sm:w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
-                        <button
-                          disabled={Number((p as any).stock) <= 0}
-                          aria-label="increase"
-                          onClick={() => {
-                            if (Number((p as any).stock) <= 0) return;
-                            const next = n + 1;
-                            setQty((s) => ({ ...s, [p.id]: next }));
-                            add({ ...p, price: p.offerPrice } as any, next);
-                          }}
-                          className={`flex h-8 items-center justify-center rounded-lg border transition ${
-                            Number((p as any).stock) <= 0
-                              ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none px-2 text-[9.5px] font-extrabold uppercase whitespace-nowrap"
-                              : "w-8 border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
-                          }`}
-                        >
-                          {Number((p as any).stock) <= 0 ? "Out of Stock" : <Plus size={14} />}
-                        </button>
-                      </div>
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })
