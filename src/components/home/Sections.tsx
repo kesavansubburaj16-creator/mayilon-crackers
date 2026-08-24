@@ -296,7 +296,7 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
     <>
       <div className="glass overflow-hidden rounded-[34px] border border-red-500/20 bg-white shadow-xl">
         <div className="grid lg:grid-cols-[1.5fr_1fr]">
-          <div className="border-b border-red-500/12 p-7 lg:border-b-0 lg:border-r">
+          <div className="border-b border-red-500/12 p-3.5 sm:p-7 lg:border-b-0 lg:border-r">
             <div className="relative">
               <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600" />
               <input
@@ -320,7 +320,7 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
               {q && <button onClick={() => setQ("")} className="text-red-600 hover:underline">Clear Search</button>}
             </div>
 
-            <div className="mt-3 max-h-[500px] space-y-3 overflow-y-auto pr-1.5 hide-scrollbar">
+            <div className="mt-3 max-h-[500px] space-y-2.5 overflow-y-auto pr-1 hide-scrollbar">
               {filtered.length === 0 ? (
                 <div className="p-10 text-center text-slate-500 font-medium">
                   No products match &quot;{q}&quot;. Try searching for &quot;Laxmi&quot;, &quot;Sparklers&quot;, or &quot;Fancy&quot;.
@@ -331,12 +331,12 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
+                      className="flex items-center gap-2 sm:gap-3.5 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 sm:p-3 transition-all duration-300 hover:border-red-500/40 hover:bg-red-50/30"
                     >
                       {/* Interactive Zoomable Product Thumbnail */}
                       <div
                         onClick={() => setZoomProduct(p)}
-                        className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm"
+                        className="group relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm"
                         title="Click to Zoom Image"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -349,30 +349,30 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                           }`}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 opacity-0 transition-opacity group-hover:opacity-100">
-                          <ZoomIn size={16} className="text-white" />
+                          <ZoomIn size={15} className="text-white" />
                         </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13.5px] font-bold text-slate-900">{p.name}</p>
-                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <p className="truncate text-[13px] sm:text-[13.5px] font-bold text-slate-900">{p.name}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] sm:text-[11px]">
                           <span className="font-bold text-red-600 sm:hidden">
                             {formatINR(Number(p.offerPrice))}
                           </span>
-                          <span className="uppercase tracking-[1.5px] text-slate-500 font-medium">
+                          <span className="uppercase tracking-[1px] text-slate-500 font-medium truncate">
                             {p.sku} · {p.packing}
                           </span>
                           {Number((p as any).stock) <= 0 && (
-                            <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-white">
+                            <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-white shrink-0">
                               Out of Stock
                             </span>
                           )}
                         </div>
                       </div>
-                      <p className="hidden text-sm font-bold text-red-600 sm:block">
+                      <p className="hidden text-sm font-bold text-red-600 sm:block shrink-0">
                         {formatINR(Number(p.offerPrice))}
                       </p>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                         <button
                           disabled={Number((p as any).stock) <= 0 || n <= 0}
                           aria-label="decrease"
@@ -392,7 +392,7 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                         >
                           <Minus size={14} />
                         </button>
-                        <span className="w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
+                        <span className="w-6 sm:w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
                         <button
                           disabled={Number((p as any).stock) <= 0}
                           aria-label="increase"
@@ -404,7 +404,7 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                           }}
                           className={`flex h-8 items-center justify-center rounded-lg border transition ${
                             Number((p as any).stock) <= 0
-                              ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none px-2.5 text-[10px] font-extrabold uppercase"
+                              ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none px-2 text-[9.5px] font-extrabold uppercase whitespace-nowrap"
                               : "w-8 border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
                           }`}
                         >
