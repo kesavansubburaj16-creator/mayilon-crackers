@@ -95,7 +95,9 @@ export function ProductBrowser({
                   src={p.imageUrl ?? ""}
                   alt={p.name}
                   loading="lazy"
-                  className="h-32 w-full rounded-[20px] object-cover border border-slate-200 sm:h-24 sm:w-32"
+                  className={`h-32 w-full rounded-[20px] object-cover border border-slate-200 sm:h-24 sm:w-32 ${
+                    Number(p.stock) <= 0 ? "grayscale opacity-60" : ""
+                  }`}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-[10.5px] font-bold uppercase tracking-[2.5px] text-red-600">
@@ -107,7 +109,12 @@ export function ProductBrowser({
                     </h3>
                   </Link>
                   <p className="mt-1 text-[12.5px] text-slate-500 font-medium">
-                    {p.packing} · MOQ {p.moq} · {p.stock} in stock
+                    {p.packing} · MOQ {p.moq} ·{" "}
+                    {Number(p.stock) <= 0 ? (
+                      <span className="font-bold text-red-600">Out of Stock</span>
+                    ) : (
+                      `${p.stock} in stock`
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-6">
@@ -121,7 +128,9 @@ export function ProductBrowser({
                     <p className="text-[11px] font-bold text-emerald-600">{p.discountPercent}% off</p>
                   </div>
                   <button
-                    onClick={() =>
+                    disabled={Number(p.stock) <= 0}
+                    onClick={() => {
+                      if (Number(p.stock) <= 0) return;
                       add({
                         id: p.id,
                         sku: p.sku,
@@ -133,11 +142,18 @@ export function ProductBrowser({
                         mrp: Number(p.mrp),
                         price: Number(p.offerPrice),
                         moq: p.moq,
-                      })
-                    }
-                    className="btn-gold flex h-11 w-11 items-center justify-center rounded-2xl"
+                      });
+                    }}
+                    className={`flex h-11 items-center justify-center rounded-2xl text-xs font-bold uppercase ${
+                      Number(p.stock) <= 0
+                        ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none px-3"
+                        : "btn-gold w-11"
+                    }`}
                     aria-label={`Add ${p.name} to estimate`}
                   >
+                    {Number(p.stock) <= 0 ? "Out of Stock" : <Plus size={16} />}
+                  </button>
+                </div>
                     <Plus size={18} />
                   </button>
                 </div>

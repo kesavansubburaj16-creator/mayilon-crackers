@@ -97,7 +97,9 @@ export function EstimateWidget({ p }: { p: P }) {
       </div>
 
       <button
-        onClick={() =>
+        disabled={Number(p.stock) <= 0}
+        onClick={() => {
+          if (Number(p.stock) <= 0) return;
           add(
             {
               id: p.id,
@@ -112,11 +114,15 @@ export function EstimateWidget({ p }: { p: P }) {
               moq: p.moq,
             },
             qty,
-          )
-        }
-        className="btn-gold mt-5 w-full py-3.5 text-sm uppercase"
+          );
+        }}
+        className={`mt-5 w-full py-3.5 text-sm uppercase font-bold transition-all ${
+          Number(p.stock) <= 0
+            ? "!bg-slate-200 !text-slate-400 border border-slate-300 cursor-not-allowed pointer-events-none rounded-[18px] shadow-none"
+            : "btn-gold"
+        }`}
       >
-        {inEstimate ? `Add ${qty} more to estimate` : "Add to estimate"}
+        {Number(p.stock) <= 0 ? "Out of Stock" : inEstimate ? `Add ${qty} more to estimate` : "Add to estimate"}
       </button>
 
       {inEstimate && (

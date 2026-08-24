@@ -92,25 +92,33 @@ export function ProductCard({ p, index = 0 }: { p: CardProduct; index?: number }
               src={p.imageUrl ?? ""}
               alt={p.name}
               loading="lazy"
-              className="h-full w-full scale-[1.02] object-cover transition-transform duration-[1.4s] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110"
+              className={`h-full w-full scale-[1.02] object-cover transition-transform duration-[1.4s] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110 ${
+                Number(p.stock) <= 0 ? "grayscale opacity-60" : ""
+              }`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
 
             <div className="absolute left-4 top-4 flex flex-col gap-1.5 z-10">
-              <span className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
-                {p.discountPercent}% Off
-              </span>
-              {p.isNewArrival && (
+              {Number(p.stock) <= 0 ? (
+                <span className="rounded-full bg-slate-900 border border-slate-700 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white shadow-md">
+                  OUT OF STOCK
+                </span>
+              ) : (
+                <span className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                  {p.discountPercent}% Off
+                </span>
+              )}
+              {p.isNewArrival && Number(p.stock) > 0 && (
                 <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                   New
                 </span>
               )}
-              {p.isBestSeller && (
+              {p.isBestSeller && Number(p.stock) > 0 && (
                 <span className="rounded-full bg-orange-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                   Best Seller
                 </span>
               )}
-              {p.isPremium && (
+              {p.isPremium && Number(p.stock) > 0 && (
                 <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                   Premium
                 </span>
@@ -157,19 +165,35 @@ export function ProductCard({ p, index = 0 }: { p: CardProduct; index?: number }
                   <p className="font-display text-[22px] font-bold text-red-600">{formatINR(price)}</p>
                 </div>
                 <span
-                  className={`text-[11px] font-bold ${p.stock > 60 ? "text-emerald-600" : "text-amber-600"}`}
+                  className={`text-[11px] font-bold ${
+                    Number(p.stock) <= 0
+                      ? "text-red-600 font-extrabold"
+                      : p.stock > 60
+                      ? "text-emerald-600"
+                      : "text-amber-600"
+                  }`}
                 >
-                  {p.stock > 60 ? "In Stock" : `Only ${p.stock} left`}
+                  {Number(p.stock) <= 0 ? "Out of Stock" : p.stock > 60 ? "In Stock" : `Only ${p.stock} left`}
                 </span>
               </div>
 
               <button
-                onClick={handleAdd}
+                disabled={Number(p.stock) <= 0}
+                onClick={(e) => {
+                  if (Number(p.stock) <= 0) return;
+                  handleAdd(e);
+                }}
                 className={`mt-4 flex w-full items-center justify-center gap-2 py-2.5 text-[12.5px] font-bold uppercase tracking-wider transition-all duration-300 ${
-                  added ? "bg-emerald-600 text-white rounded-[18px] shadow-md" : "btn-gold"
+                  Number(p.stock) <= 0
+                    ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none rounded-[18px]"
+                    : added
+                    ? "bg-emerald-600 text-white rounded-[18px] shadow-md"
+                    : "btn-gold"
                 }`}
               >
-                {added ? (
+                {Number(p.stock) <= 0 ? (
+                  "Out of Stock"
+                ) : added ? (
                   <>
                     <Check size={16} /> Added +1
                   </>

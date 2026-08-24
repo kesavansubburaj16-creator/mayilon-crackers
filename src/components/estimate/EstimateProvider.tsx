@@ -113,6 +113,10 @@ export function EstimateProvider({ children }: { children: ReactNode }) {
 
   // 4. Add item with robust ID & SKU matching
   const add = useCallback<Ctx["add"]>((rawLine, qty) => {
+    if ((rawLine as any)?.stock !== undefined && Number((rawLine as any)?.stock) <= 0) {
+      setToast(`Sorry, ${rawLine.name || "this item"} is currently out of stock`);
+      return;
+    }
     const line = sanitizeLine(rawLine);
     setItems((prev) => {
       const lineIdStr = String(line.id);

@@ -344,7 +344,9 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                           src={p.imageUrl ?? "/images/placeholder.jpg"}
                           alt={p.name}
                           loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-110 ${
+                            Number((p as any).stock) <= 0 ? "grayscale opacity-60" : ""
+                          }`}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 opacity-0 transition-opacity group-hover:opacity-100">
                           <ZoomIn size={16} className="text-white" />
@@ -360,6 +362,11 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                           <span className="uppercase tracking-[1.5px] text-slate-500 font-medium">
                             {p.sku} · {p.packing}
                           </span>
+                          {Number((p as any).stock) <= 0 && (
+                            <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-white">
+                              Out of Stock
+                            </span>
+                          )}
                         </div>
                       </div>
                       <p className="hidden text-sm font-bold text-red-600 sm:block">
@@ -367,29 +374,41 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
                       </p>
                       <div className="flex items-center gap-1.5">
                         <button
+                          disabled={Number((p as any).stock) <= 0 || n <= 0}
                           aria-label="decrease"
                           onClick={() => {
+                            if (Number((p as any).stock) <= 0) return;
                             const next = Math.max(0, n - 1);
                             setQty((s) => ({ ...s, [p.id]: next }));
                             if (next > 0) {
                               add({ ...p, price: p.offerPrice } as any, next);
                             }
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                            Number((p as any).stock) <= 0
+                              ? "border-slate-200 text-slate-300 cursor-not-allowed opacity-40"
+                              : "border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
+                          }`}
                         >
                           <Minus size={14} />
                         </button>
                         <span className="w-8 text-center text-sm font-bold tabular-nums text-slate-900">{n}</span>
                         <button
+                          disabled={Number((p as any).stock) <= 0}
                           aria-label="increase"
                           onClick={() => {
+                            if (Number((p as any).stock) <= 0) return;
                             const next = n + 1;
                             setQty((s) => ({ ...s, [p.id]: next }));
                             add({ ...p, price: p.offerPrice } as any, next);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 text-red-600 transition hover:bg-red-600 hover:text-white active:scale-90"
+                          className={`flex h-8 items-center justify-center rounded-lg border transition ${
+                            Number((p as any).stock) <= 0
+                              ? "!bg-slate-200 !text-slate-400 !border-slate-300 cursor-not-allowed pointer-events-none shadow-none px-2.5 text-[10px] font-extrabold uppercase"
+                              : "w-8 border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white active:scale-90"
+                          }`}
                         >
-                          <Plus size={14} />
+                          {Number((p as any).stock) <= 0 ? "Out of Stock" : <Plus size={14} />}
                         </button>
                       </div>
                     </div>
