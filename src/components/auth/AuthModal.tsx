@@ -400,7 +400,7 @@ export function AuthModal({
                   <Lock size={14} className="text-red-600" /> Secure Supabase & SMS Auth
                 </p>
               </div>
-            ) : (
+            ) : step === "OTP" ? (
               /* STEP 2: 6-DIGIT OTP VERIFICATION SCREEN */
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 <button
