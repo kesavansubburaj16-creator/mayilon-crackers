@@ -17,6 +17,8 @@ import {
   Mail,
   MessageCircle,
   Package,
+  PackageCheck,
+  PackageX,
   Plus,
   QrCode,
   Receipt,
@@ -400,6 +402,41 @@ export default function AdminPage() {
       await fetch(`/api/v1/products?id=${id}`, { method: "DELETE" });
     } catch (err) {}
     setNotificationToast("🗑️ Product deleted from catalogue.");
+    setTimeout(() => setNotificationToast(null), 3000);
+  }
+
+  async function toggleOutofStock(p: ProductItem) {
+    const isOut = Number(p.stock) <= 0;
+    const newStock = isOut ? 250 : 0;
+    const updated = { ...p, stock: newStock };
+
+    setProducts((prev) =>
+      prev.map((item) => (item.id === p.id || item.sku === p.sku ? updated : item)),
+    );
+
+    try {
+      const localRaw = localStorage.getItem("mayilon_custom_products");
+      if (localRaw) {
+        const arr = JSON.parse(localRaw);
+        if (Array.isArray(arr)) {
+          const updatedArr = arr.map((item: any) =>
+            item.id === p.id || item.sku === p.sku ? { ...item, stock: newStock } : item,
+          );
+          localStorage.setItem("mayilon_custom_products", JSON.stringify(updatedArr));
+        }
+      }
+      await fetch("/api/v1/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+    } catch (err) {}
+
+    setNotificationToast(
+      newStock === 0
+        ? `🚫 ${p.name} marked as OUT OF STOCK!`
+        : `✅ ${p.name} restocked to ${newStock} units!`,
+    );
     setTimeout(() => setNotificationToast(null), 3000);
   }
 
@@ -897,13 +934,37 @@ export default function AdminPage() {
                           </td>
                           <td
                             className={`py-3 text-right font-bold ${
-                              Number(p.stock) < 200 ? "text-red-600" : "text-emerald-600"
+                              Number(p.stock) <= 0
+                                ? "text-red-600 font-extrabold"
+                                : Number(p.stock) < 200
+                                ? "text-amber-600"
+                                : "text-emerald-600"
                             }`}
                           >
-                            {p.stock}
+                            {Number(p.stock) <= 0 ? "0 (Out of Stock)" : p.stock}
                           </td>
                           <td className="py-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => toggleOutofStock(p)}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11.5px] font-bold shadow-sm transition-all ${
+                                  Number(p.stock) <= 0
+                                    ? "bg-red-600 text-white border border-red-700 hover:bg-emerald-600"
+                                    : "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-600 hover:text-white"
+                                }`}
+                                title={Number(p.stock) <= 0 ? "Click to Restock (In Stock)" : "Click to mark Out of Stock"}
+                              >
+                                {Number(p.stock) <= 0 ? (
+                                  <>
+                                    <PackageCheck size={13} /> Out of Stock (Enable)
+                                  </>
+                                ) : (
+                                  <>
+                                    <PackageX size={13} /> Out of Stock
+                                  </>
+                                )}
+                              </button>
+
                               <button
                                 onClick={() => openEditProduct(p)}
                                 className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11.5px] font-bold text-slate-700 hover:border-red-500 hover:text-red-600 shadow-sm"
@@ -1117,7 +1178,25 @@ export default function AdminPage() {
                     />
                   </label>
                   <label className="block">
-                    <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Stock</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-[2px] text-slate-700">Stock</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setProductForm((prev) => ({
+                            ...prev,
+                            stock: Number(prev.stock) <= 0 ? 250 : 0,
+                          }))
+                        }
+                        className={`text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded transition ${
+                          Number(productForm.stock) <= 0
+                            ? "bg-red-600 text-white"
+                            : "bg-slate-200 text-slate-700 hover:bg-red-600 hover:text-white"
+                        }`}
+                      >
+                        {Number(productForm.stock) <= 0 ? "Out of Stock (0)" : "Set 0 Stock"}
+                      </button>
+                    </div>
                     <input
                       type="number"
                       value={productForm.stock}
