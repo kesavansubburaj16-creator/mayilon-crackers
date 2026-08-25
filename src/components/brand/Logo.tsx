@@ -23,7 +23,7 @@ export function LogoMark({ size = 48, className = "" }: Props) {
 }
 
 export function LogoLockup({
-  size = 46,
+  size = 42,
   compact = false,
   className = "",
 }: {
@@ -32,17 +32,17 @@ export function LogoLockup({
   className?: string;
 }) {
   return (
-    <span className={`group inline-flex items-center gap-3 ${className}`}>
+    <span className={`group inline-flex items-center gap-2 sm:gap-3 shrink-0 ${className}`}>
       <span className="relative inline-flex items-center">
         <span className="absolute inset-0 -z-10 rounded-full bg-gold/30 blur-md transition-all duration-500 group-hover:bg-gold/60" />
         <LogoMark size={size} />
       </span>
       {!compact && (
         <span className="flex flex-col leading-none">
-          <span className="gold-text font-display text-[18px] font-bold tracking-[2px] uppercase">
+          <span className="gold-text font-display text-[15px] sm:text-[18px] font-bold tracking-[1px] sm:tracking-[2px] uppercase whitespace-nowrap">
             மயிலோன்
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-[4px] text-slate-800">
+          <span className="text-[8.5px] sm:text-[10px] font-bold uppercase tracking-[2px] sm:tracking-[4px] text-slate-800 whitespace-nowrap">
             PYROWORLD
           </span>
         </span>

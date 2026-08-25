@@ -114,8 +114,8 @@ export function Navbar() {
               : "border-b border-slate-200/80 bg-white/85 backdrop-blur-md"
           }`}
         >
-          <div className="shell flex h-[74px] items-center justify-between gap-4">
-            <Link href="/" aria-label="Mayilon Crackers home">
+          <div className="shell flex h-[70px] sm:h-[74px] items-center justify-between gap-1.5 sm:gap-4 px-2.5 sm:px-6">
+            <Link href="/" aria-label="Mayilon Crackers home" className="shrink-0">
               <LogoLockup />
             </Link>
 
@@ -141,30 +141,30 @@ export function Navbar() {
               })}
             </nav>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               <button
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search products"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-300 hover:border-red-600 hover:text-red-600"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-300 hover:border-red-600 hover:text-red-600"
               >
-                <Search size={17} />
+                <Search size={16} />
               </button>
               <a
                 href={`tel:${SITE.phoneRaw}`}
                 aria-label="Call Mayilon Crackers"
-                className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-300 hover:border-red-600 hover:text-red-600 sm:flex"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-300 hover:border-red-600 hover:text-red-600 sm:flex"
               >
                 <Phone size={16} />
               </a>
 
               <Link
                 href="/estimate"
-                className="btn-gold relative flex h-10 items-center gap-2 px-4 text-[12.5px] uppercase font-bold"
+                className="btn-gold relative flex h-9 sm:h-10 shrink-0 items-center gap-1 sm:gap-2 px-2.5 sm:px-4 text-[12px] sm:text-[12.5px] uppercase font-bold"
               >
-                <ShoppingBag size={16} />
+                <ShoppingBag size={15} />
                 <span className="hidden sm:inline">Cart / Order</span>
                 {count > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold text-red-600 shadow">
+                  <span className="flex h-4 min-w-[18px] sm:h-5 sm:min-w-[20px] items-center justify-center rounded-full bg-white px-1 text-[10px] sm:text-[11px] font-extrabold text-red-600 shadow">
                     {count}
                   </span>
                 )}
@@ -173,7 +173,7 @@ export function Navbar() {
               {/* LOGIN BUTTON RIGHT NEXT TO CART / ORDER */}
               <button
                 onClick={() => setLoginModalOpen(true)}
-                className="btn-ghost flex h-10 items-center gap-1.5 px-3.5 text-[12.5px] font-bold uppercase shadow-sm"
+                className="btn-ghost flex h-9 sm:h-10 shrink-0 items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 text-[12px] sm:text-[12.5px] font-bold uppercase shadow-sm"
               >
                 <User size={16} className="text-red-600" />
                 <span className="hidden sm:inline">
@@ -184,9 +184,9 @@ export function Navbar() {
               <button
                 onClick={() => setOpen((o) => !o)}
                 aria-label="Toggle menu"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition lg:hidden"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition lg:hidden"
               >
-                {open ? <X size={20} /> : <Menu size={20} />}
+                {open ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>
           </div>
