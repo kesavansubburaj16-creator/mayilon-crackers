@@ -10,6 +10,7 @@ const COLS = [
     title: "Company",
     links: [
       { href: "/about", label: "About Mayilon" },
+      { href: "/pricelist", label: "Official Price List" },
       { href: "/products", label: "All Products" },
       { href: "/categories", label: "Categories" },
       { href: "/dealers", label: "Dealer Program" },

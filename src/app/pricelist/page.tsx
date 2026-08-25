@@ -49,6 +49,39 @@ export default function PriceListPage() {
     }
   };
 
+  const downloadExcelCsv = () => {
+    if (!products || products.length === 0) return;
+    const headers = ["S.No", "Category", "Product Code (SKU)", "Product Name", "Packing", "MRP (INR)", "Wholesale Offer Price (INR)"];
+    
+    let serial = 1;
+    const rows: string[] = [];
+    rows.push(`"MAYILON PYROWORLD - Sivakasi Wholesale Fireworks Factory Price List 2026"`);
+    rows.push(`"Date: ${todayDate} | Flat 80% Off Factory Direct Wholesale Rates"`);
+    rows.push("");
+    rows.push(headers.map((h) => `"${h}"`).join(","));
+
+    products.forEach((p) => {
+      const cat = (p.categoryName || "General Fireworks").replace(/"/g, '""');
+      const sku = (p.sku || "").replace(/"/g, '""');
+      const name = (p.name || "").replace(/"/g, '""');
+      const packing = (p.packing || "").replace(/"/g, '""');
+      const mrp = Number(p.mrp || 0).toFixed(2);
+      const offerPrice = Number(p.offerPrice || 0).toFixed(2);
+
+      rows.push(`"${serial++}","${cat}","${sku}","${name}","${packing}","${mrp}","${offerPrice}"`);
+    });
+
+    const csvContent = rows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Mayilon_Crackers_Sivakasi_Wholesale_Price_List_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Group products by category
   const categoriesMap: Record<string, any[]> = {};
   products.forEach((p) => {
@@ -66,20 +99,26 @@ export default function PriceListPage() {
             <ArrowLeft size={16} /> Back to Website
           </Link>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <a
-              href={waLink("Hi Mayilon Crackers, I downloaded your Price List PDF and would like to place an order.")}
+              href={waLink("Hi Mayilon Crackers, I checked your Price List and would like to place an order.")}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-600 hover:text-white transition shadow-sm"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-600 hover:text-white transition shadow-sm"
             >
               <MessageCircle size={15} /> Order on WhatsApp
             </a>
             <button
-              onClick={handlePrint}
-              className="btn-gold flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase shadow-md"
+              onClick={downloadExcelCsv}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-md"
             >
-              <Printer size={16} /> Download / Print PDF Price List
+              <Download size={15} /> Download Excel (.csv)
+            </button>
+            <button
+              onClick={handlePrint}
+              className="btn-gold flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase shadow-md"
+            >
+              <Printer size={16} /> Download / Print PDF
             </button>
           </div>
         </div>
