@@ -249,31 +249,38 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
 
   useEffect(() => {
     setDisplayProducts(products);
-    try {
-      const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
-      if (localRaw) {
-        const customArr = JSON.parse(localRaw);
-        if (Array.isArray(customArr) && customArr.length > 0) {
-          const map = new Map(products.map((p) => [p.id, p]));
-          for (const c of customArr) {
-            if (!c) continue;
-            const existing = map.get(c.id);
-            const merged = {
-              ...(existing || ({} as CalcProduct)),
-              ...c,
-              mrp: String(c.mrp),
-              offerPrice: String(c.offerPrice),
-            };
-            if (existing) {
-              map.set(existing.id, merged);
-            } else {
-              map.set(c.id || `prod-${Date.now()}`, merged);
+
+    // Fetch live products directly from API for real-time multi-device sync
+    async function syncLiveProducts() {
+      try {
+        const res = await fetch("/api/v1/products?limit=350&sort=alpha");
+        const json = await res.json();
+        let apiItems = json?.data?.items || [];
+
+        // Merge with local backup if available
+        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+        if (localRaw) {
+          const customArr = JSON.parse(localRaw);
+          if (Array.isArray(customArr) && customArr.length > 0) {
+            const map = new Map(apiItems.map((p: any) => [p.id, p]));
+            for (const c of customArr) {
+              if (!c) continue;
+              const existing = map.get(c.id);
+              const merged = {
+                ...(existing || ({} as CalcProduct)),
+                ...c,
+                mrp: String(c.mrp),
+                offerPrice: String(c.offerPrice),
+              };
+              map.set(c.id || existing?.id || `prod-${Date.now()}`, merged);
             }
+            apiItems = Array.from(map.values());
           }
-          setDisplayProducts(Array.from(map.values()));
         }
-      }
-    } catch (err) {}
+        if (apiItems.length > 0) setDisplayProducts(apiItems);
+      } catch (err) {}
+    }
+    syncLiveProducts();
   }, [products]);
 
   const filtered = useMemo(() => {
