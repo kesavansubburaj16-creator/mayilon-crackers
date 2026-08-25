@@ -598,6 +598,32 @@ export default function AdminPage() {
       p.categoryName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const dashTotalOrdersCount = estimates.length;
+  const dashTotalRevenue = estimates.reduce(
+    (sum, e) => sum + (Number(e.grandTotal) || Number(e.subtotal) || 0),
+    0,
+  );
+  const dashPaidRevenue = estimates.reduce((sum, e) => {
+    if (
+      e.paymentStatus === "PAID" ||
+      e.status === "DELIVERED" ||
+      e.status === "PAYMENT RECEIVED" ||
+      e.status === "SHIPPED"
+    ) {
+      return sum + (Number(e.grandTotal) || Number(e.subtotal) || 0);
+    }
+    return sum;
+  }, 0);
+  const dashDeliveredCount = estimates.filter(
+    (e) => e.status === "DELIVERED" || e.status === "SHIPPED",
+  ).length;
+  const dashPendingCount = estimates.filter(
+    (e) =>
+      e.status === "NEW" ||
+      e.status === "PENDING" ||
+      e.status === "PACKAGE READY",
+  ).length;
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       {/* Toast Notification Alert */}
@@ -717,72 +743,44 @@ export default function AdminPage() {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           >
             {/* Dashboard Tab */}
-            {tab === "dashboard" &&
-              (() => {
-                const totalOrdersCount = estimates.length;
-                const totalRevenue = estimates.reduce(
-                  (sum, e) => sum + (Number(e.grandTotal) || Number(e.subtotal) || 0),
-                  0,
-                );
-                const paidRevenue = estimates.reduce((sum, e) => {
-                  if (
-                    e.paymentStatus === "PAID" ||
-                    e.status === "DELIVERED" ||
-                    e.status === "PAYMENT RECEIVED" ||
-                    e.status === "SHIPPED"
-                  ) {
-                    return sum + (Number(e.grandTotal) || Number(e.subtotal) || 0);
-                  }
-                  return sum;
-                }, 0);
-                const deliveredCount = estimates.filter(
-                  (e) => e.status === "DELIVERED" || e.status === "SHIPPED",
-                ).length;
-                const pendingCount = estimates.filter(
-                  (e) =>
-                    e.status === "NEW" ||
-                    e.status === "PENDING" ||
-                    e.status === "PACKAGE READY",
-                ).length;
+            {tab === "dashboard" && (
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <Kpi
+                    label="Total Orders Revenue"
+                    value={formatINR(dashTotalRevenue, { compact: true })}
+                    sub={`${dashTotalOrdersCount} Total Orders Received`}
+                    icon={BarChart3}
+                  />
+                  <Kpi
+                    label="Delivered & Shipped"
+                    value={`${dashDeliveredCount} Orders`}
+                    sub="Successfully Delivered"
+                    icon={CheckCircle2}
+                    accent="#16A34A"
+                  />
+                  <Kpi
+                    label="Confirmed Earnings"
+                    value={formatINR(dashPaidRevenue || dashTotalRevenue, { compact: true })}
+                    sub="Total Revenue Generated"
+                    icon={Activity}
+                    accent="#D4AF37"
+                  />
+                  <Kpi
+                    label="Pending Dispatch"
+                    value={`${dashPendingCount} Orders`}
+                    sub="Awaiting packing/dispatch"
+                    icon={Receipt}
+                    accent="#EA580C"
+                  />
+                </div>
 
-                return (
-                  <div className="space-y-6">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Kpi
-                        label="Total Orders Revenue"
-                        value={formatINR(totalRevenue, { compact: true })}
-                        sub={`${totalOrdersCount} Total Orders Received`}
-                        icon={BarChart3}
-                      />
-                      <Kpi
-                        label="Delivered & Shipped"
-                        value={`${deliveredCount} Orders`}
-                        sub="Successfully Delivered"
-                        icon={CheckCircle2}
-                        accent="#16A34A"
-                      />
-                      <Kpi
-                        label="Confirmed Earnings"
-                        value={formatINR(paidRevenue || totalRevenue, { compact: true })}
-                        sub="Total Revenue Generated"
-                        icon={Activity}
-                        accent="#D4AF37"
-                      />
-                      <Kpi
-                        label="Pending Dispatch"
-                        value={`${pendingCount} Orders`}
-                        sub="Awaiting packing/dispatch"
-                        icon={Receipt}
-                        accent="#EA580C"
-                      />
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Mini label="Products Live" value={products.length || 112} />
-                      <Mini label="Dealer Applications" value={dealers.length} />
-                      <Mini label="Enquiries & B2B" value={enquiries.length + dealers.length} />
-                      <Mini label="Total Customer Orders" value={estimates.length} />
-                    </div>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <Mini label="Products Live" value={products.length || 112} />
+                  <Mini label="Dealer Applications" value={dealers.length} />
+                  <Mini label="Enquiries & B2B" value={enquiries.length + dealers.length} />
+                  <Mini label="Total Customer Orders" value={estimates.length} />
+                </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Panel title="Pipeline Status Breakdown">
@@ -826,7 +824,6 @@ export default function AdminPage() {
                   </Panel>
                 </div>
               </div>
-            )()}
             )}
 
             {/* Orders & Estimates Tab */}
