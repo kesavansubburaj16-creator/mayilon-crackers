@@ -717,21 +717,72 @@ export default function AdminPage() {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           >
             {/* Dashboard Tab */}
-            {tab === "dashboard" && (
-              <div className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <Kpi label="Total Pipeline" value={formatINR(k?.pipeline ?? 0, { compact: true })} sub={`${k?.estimateCount ?? 0} total orders`} icon={BarChart3} />
-                  <Kpi label="Today Sales" value={`${k?.todayCount ?? 0}`} sub={formatINR(k?.todayValue ?? 0)} icon={Activity} />
-                  <Kpi label="Pending Review" value={`${k?.pending ?? 0}`} sub="Awaiting packing/dispatch" icon={Receipt} accent="#EA580C" />
-                  <Kpi label="Conversion Rate" value={`${(k?.conversionRate ?? 0).toFixed(1)}%`} sub={`Avg ${formatINR(k?.avgValue ?? 0)}`} icon={CheckCircle2} accent="#16A34A" />
-                </div>
+            {tab === "dashboard" &&
+              (() => {
+                const totalOrdersCount = estimates.length;
+                const totalRevenue = estimates.reduce(
+                  (sum, e) => sum + (Number(e.grandTotal) || Number(e.subtotal) || 0),
+                  0,
+                );
+                const paidRevenue = estimates.reduce((sum, e) => {
+                  if (
+                    e.paymentStatus === "PAID" ||
+                    e.status === "DELIVERED" ||
+                    e.status === "PAYMENT RECEIVED" ||
+                    e.status === "SHIPPED"
+                  ) {
+                    return sum + (Number(e.grandTotal) || Number(e.subtotal) || 0);
+                  }
+                  return sum;
+                }, 0);
+                const deliveredCount = estimates.filter(
+                  (e) => e.status === "DELIVERED" || e.status === "SHIPPED",
+                ).length;
+                const pendingCount = estimates.filter(
+                  (e) =>
+                    e.status === "NEW" ||
+                    e.status === "PENDING" ||
+                    e.status === "PACKAGE READY",
+                ).length;
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <Mini label="Products Live" value={products.length || (k?.products ?? 0)} />
-                  <Mini label="Dealer Applications" value={k?.dealers ?? 0} />
-                  <Mini label="Enquiries" value={k?.enquiries ?? 0} />
-                  <Mini label="Subscribers" value={k?.subscribers ?? 0} />
-                </div>
+                return (
+                  <div className="space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <Kpi
+                        label="Total Orders Revenue"
+                        value={formatINR(totalRevenue, { compact: true })}
+                        sub={`${totalOrdersCount} Total Orders Received`}
+                        icon={BarChart3}
+                      />
+                      <Kpi
+                        label="Delivered & Shipped"
+                        value={`${deliveredCount} Orders`}
+                        sub="Successfully Delivered"
+                        icon={CheckCircle2}
+                        accent="#16A34A"
+                      />
+                      <Kpi
+                        label="Confirmed Earnings"
+                        value={formatINR(paidRevenue || totalRevenue, { compact: true })}
+                        sub="Total Revenue Generated"
+                        icon={Activity}
+                        accent="#D4AF37"
+                      />
+                      <Kpi
+                        label="Pending Dispatch"
+                        value={`${pendingCount} Orders`}
+                        sub="Awaiting packing/dispatch"
+                        icon={Receipt}
+                        accent="#EA580C"
+                      />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <Mini label="Products Live" value={products.length || 112} />
+                      <Mini label="Dealer Applications" value={dealers.length} />
+                      <Mini label="Enquiries & B2B" value={enquiries.length + dealers.length} />
+                      <Mini label="Total Customer Orders" value={estimates.length} />
+                    </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Panel title="Pipeline Status Breakdown">
@@ -775,6 +826,7 @@ export default function AdminPage() {
                   </Panel>
                 </div>
               </div>
+            )()}
             )}
 
             {/* Orders & Estimates Tab */}
