@@ -6,6 +6,7 @@ import {
   Award,
   ChevronDown,
   Factory,
+  FileText,
   Flame,
   IndianRupee,
   Minus,
@@ -437,12 +438,18 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
               </div>
             </div>
 
-            <div className="mt-7 pt-4">
+            <div className="mt-7 pt-4 space-y-2.5">
               <Link
                 href="/estimate"
-                className="btn-gold block w-full py-3.5 text-center text-sm uppercase"
+                className="btn-gold block w-full py-3.5 text-center text-sm uppercase font-bold"
               >
                 Open Full Estimate Sheet →
+              </Link>
+              <Link
+                href="/pricelist"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-white py-3 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition shadow-sm"
+              >
+                <FileText size={15} /> Download Official Price List (PDF)
               </Link>
             </div>
           </div>

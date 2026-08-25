@@ -14,6 +14,7 @@ import { SearchOverlay } from "./SearchOverlay";
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
+  { href: "/pricelist", label: "Price List (PDF)" },
   { href: "/categories", label: "Categories" },
   { href: "/dealers", label: "Wholesale" },
   { href: "/safety", label: "Safety" },

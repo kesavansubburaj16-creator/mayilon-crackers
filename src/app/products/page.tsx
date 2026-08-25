@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { FileText } from "lucide-react";
 import { ProductBrowser } from "@/components/product/ProductBrowser";
 import { Reveal } from "@/components/ui/Reveal";
 import { getCategories, getProducts } from "@/lib/data";
@@ -107,6 +108,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
               {active?.description ??
                 "Factory-direct pricing on the full Mayilon range. Filter by category, price band or collection, then build an estimate in one click."}
             </p>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link
+                href="/pricelist"
+                className="btn-gold flex items-center gap-2 px-5 py-2.5 text-xs uppercase font-bold shadow-lg"
+              >
+                <FileText size={15} /> Download Official Price List (PDF)
+              </Link>
+            </div>
           </div>
         </Reveal>
       </section>

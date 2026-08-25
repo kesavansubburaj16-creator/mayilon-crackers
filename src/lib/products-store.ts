@@ -36,6 +36,29 @@ export type ProductRecord = {
   createdAt: string;
 };
 
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+const DATA_FILE = path.join(os.tmpdir(), "mayilon_custom_products.json");
+
+function syncFileSave(prods: ProductRecord[]) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(prods), "utf-8");
+  } catch (err) {}
+}
+
+function syncFileLoad(): ProductRecord[] {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, "utf-8");
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    }
+  } catch (err) {}
+  return [];
+}
+
 type GlobalWithProducts = typeof globalThis & {
   __mayilonCustomProductsStore?: Map<string, ProductRecord>;
   __mayilonClearSeedMode?: boolean;
@@ -45,6 +68,11 @@ type GlobalWithProducts = typeof globalThis & {
 const g = globalThis as GlobalWithProducts;
 if (!g.__mayilonCustomProductsStore) {
   g.__mayilonCustomProductsStore = new Map<string, ProductRecord>();
+  // Pre-fill from persistent file if available
+  const saved = syncFileLoad();
+  for (const item of saved) {
+    if (item && item.id) g.__mayilonCustomProductsStore.set(item.id, item);
+  }
 }
 if (g.__mayilonClearSeedMode === undefined) {
   g.__mayilonClearSeedMode = false;
@@ -56,22 +84,31 @@ if (!g.__mayilonDeletedProductIds) {
 const STORE = g.__mayilonCustomProductsStore;
 const DELETED_SET = g.__mayilonDeletedProductIds;
 
-/** Save custom product to memory store */
+/** Save custom product to memory store and disk file */
 export function saveProductToStore(prod: ProductRecord): ProductRecord {
   DELETED_SET.delete(prod.id);
   STORE.set(prod.id, prod);
+  syncFileSave(Array.from(STORE.values()));
   return prod;
 }
 
 /** Get all custom added products */
 export function getCustomProductsFromStore(): ProductRecord[] {
+  if (STORE.size === 0) {
+    const saved = syncFileLoad();
+    for (const item of saved) {
+      if (item && item.id && !DELETED_SET.has(item.id)) STORE.set(item.id, item);
+    }
+  }
   return Array.from(STORE.values());
 }
 
 /** Remove individual product from store */
 export function deleteProductFromStore(id: string): boolean {
   DELETED_SET.add(id);
-  return STORE.delete(id);
+  const deleted = STORE.delete(id);
+  syncFileSave(Array.from(STORE.values()));
+  return deleted;
 }
 
 /** Check if seed products are cleared */
@@ -93,4 +130,5 @@ export function getDeletedProductIds(): Set<string> {
 export function clearAllProductsInStore(): void {
   STORE.clear();
   g.__mayilonClearSeedMode = true;
+  syncFileSave([]);
 }

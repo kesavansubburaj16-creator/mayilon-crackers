@@ -82,8 +82,27 @@ export async function POST(req: Request) {
 
   // 2. Best-effort DB Sync
   try {
-    const existingCat = await db.select({ id: categories.id }).from(categories).limit(1);
-    const validCategoryId = existingCat.length > 0 ? existingCat[0].id : null;
+    let existingCat = await db.select({ id: categories.id }).from(categories).limit(1);
+    let validCategoryId = existingCat.length > 0 ? existingCat[0].id : null;
+
+    if (!validCategoryId) {
+      const insertedCat = await db
+        .insert(categories)
+        .values({
+          name: "Special Fireworks",
+          nameTa: "சிறப்பு வெடிகள்",
+          slug: "special-fireworks",
+          tagline: "Sivakasi Direct Quality",
+          description: "Premium Sivakasi manufactured fireworks",
+          imageUrl: "/images/placeholder.jpg",
+          accent: "#D4AF37",
+          icon: "Sparkles",
+          sortOrder: 1,
+        })
+        .onConflictDoNothing()
+        .returning({ id: categories.id });
+      if (insertedCat.length > 0) validCategoryId = insertedCat[0].id;
+    }
 
     if (validCategoryId) {
       await db
