@@ -624,6 +624,28 @@ export default function AdminPage() {
       e.status === "PACKAGE READY",
   ).length;
 
+  // Real-time Pipeline Status Breakdown & Low Stock Alerts
+  const byStatusMap: Record<string, { count: number; value: number }> = {};
+  for (const e of estimates) {
+    const st = e.status || "NEW";
+    if (!byStatusMap[st]) byStatusMap[st] = { count: 0, value: 0 };
+    byStatusMap[st].count += 1;
+    byStatusMap[st].value += Number(e.grandTotal) || Number(e.subtotal) || 0;
+  }
+  const statusBreakdown =
+    Object.keys(byStatusMap).length > 0
+      ? Object.entries(byStatusMap).map(([status, d]) => ({
+          status,
+          count: d.count,
+          value: d.value,
+        }))
+      : stats?.byStatus ?? [];
+
+  const lowStockProducts =
+    products.filter((p) => p.stock < 250).length > 0
+      ? products.filter((p) => p.stock < 250).slice(0, 10)
+      : (stats?.lowStock ?? []);
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       {/* Toast Notification Alert */}
@@ -784,10 +806,10 @@ export default function AdminPage() {
 
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Panel title="Pipeline Status Breakdown">
-                    {(stats?.byStatus ?? []).length === 0 && <Empty>No estimates recorded yet.</Empty>}
+                    {statusBreakdown.length === 0 && <Empty>No estimates recorded yet.</Empty>}
                     <div className="space-y-3">
-                      {(stats?.byStatus ?? []).map((s) => {
-                        const max = Math.max(...(stats?.byStatus ?? []).map((x) => x.count), 1);
+                      {statusBreakdown.map((s) => {
+                        const max = Math.max(...statusBreakdown.map((x) => x.count), 1);
                         return (
                           <div key={s.status}>
                             <div className="mb-1 flex justify-between text-[13px] font-bold">
@@ -812,8 +834,9 @@ export default function AdminPage() {
 
                   <Panel title="Low Stock Alerts">
                     <div className="space-y-2.5">
-                      {(stats?.lowStock ?? []).map((p) => (
-                        <div key={p.sku} className="flex items-center justify-between text-[13px] font-bold">
+                      {lowStockProducts.length === 0 && <Empty>All products have sufficient stock.</Empty>}
+                      {lowStockProducts.map((p) => (
+                        <div key={p.sku || p.id} className="flex items-center justify-between text-[13px] font-bold">
                           <span className="truncate pr-4 text-slate-700">{p.name}</span>
                           <span className={p.stock < 200 ? "text-red-600" : "text-slate-500"}>
                             {p.stock} units
