@@ -414,10 +414,12 @@ export default function CheckoutPage() {
                                 <p className="text-[11px] font-bold uppercase tracking-[1.6px] text-slate-500">
                                   {it.sku} · {it.packing} · {it.categoryName}
                                 </p>
-                                <p className="mt-1 text-[12.5px] font-bold text-red-600 md:hidden">
-                                  {formatINR(itemPrice)} × {itemQty} ={" "}
-                                  {formatINR(itemPrice * itemQty)}
-                                </p>
+                                <div className="mt-1 text-[12.5px] font-bold text-red-600 md:hidden flex flex-wrap items-center gap-1.5">
+                                  <span className="text-slate-400 line-through text-[11px] font-normal">{formatINR(itemMrp)}</span>
+                                  <span className="font-extrabold">{formatINR(itemPrice)}</span>
+                                  <span className="text-slate-500 font-normal">× {itemQty} =</span>
+                                  <span className="font-extrabold">{formatINR(itemPrice * itemQty)}</span>
+                                </div>
                               </div>
                               <p className="hidden text-right text-[13px] text-slate-400 line-through md:block">
                                 {formatINR(itemMrp)}

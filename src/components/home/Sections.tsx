@@ -366,19 +366,27 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[12.5px] sm:text-[13.5px] font-bold text-slate-900">{p.name}</p>
-                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px]">
-                          <span className="font-bold text-red-600 sm:hidden shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px]">
+                          <span className="text-slate-400 line-through text-[10px] font-medium shrink-0 sm:hidden">
+                            {formatINR(Number(p.mrp))}
+                          </span>
+                          <span className="font-extrabold text-red-600 shrink-0 sm:hidden">
                             {formatINR(Number(p.offerPrice))}
                           </span>
                           <span className="uppercase tracking-[0.5px] text-slate-500 font-medium truncate">
-                            {p.sku} · {p.packing}
+                            · {p.sku} · {p.packing}
                           </span>
                         </div>
                       </div>
 
-                      <p className="hidden text-sm font-bold text-red-600 sm:block shrink-0 px-1">
-                        {formatINR(Number(p.offerPrice))}
-                      </p>
+                      <div className="hidden text-right sm:block shrink-0 px-2">
+                        <p className="text-[11px] text-slate-400 line-through font-medium leading-none">
+                          {formatINR(Number(p.mrp))}
+                        </p>
+                        <p className="text-sm font-extrabold text-red-600 leading-tight mt-0.5">
+                          {formatINR(Number(p.offerPrice))}
+                        </p>
+                      </div>
 
                       {isOut ? (
                         <span className="shrink-0 rounded-xl bg-slate-900 px-2 py-1 text-[9.5px] font-extrabold uppercase text-white shadow-sm">
