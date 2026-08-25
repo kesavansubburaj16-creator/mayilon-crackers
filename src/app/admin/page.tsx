@@ -842,8 +842,8 @@ export default function AdminPage() {
                   <Panel title="Low Stock Alerts">
                     <div className="space-y-2.5">
                       {lowStockProducts.length === 0 && <Empty>All products have sufficient stock.</Empty>}
-                      {lowStockProducts.map((p) => (
-                        <div key={p.sku || p.id} className="flex items-center justify-between text-[13px] font-bold">
+                      {lowStockProducts.map((p, idx) => (
+                        <div key={p.sku || (p as any).id || `stock-${idx}`} className="flex items-center justify-between text-[13px] font-bold">
                           <span className="truncate pr-4 text-slate-700">{p.name}</span>
                           <span className={p.stock < 200 ? "text-red-600" : "text-slate-500"}>
                             {p.stock} units
