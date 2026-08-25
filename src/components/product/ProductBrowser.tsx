@@ -37,17 +37,19 @@ export function ProductBrowser({
         if (localRaw) {
           const customArr = JSON.parse(localRaw);
           if (Array.isArray(customArr) && customArr.length > 0) {
-            const map = new Map(apiItems.map((p: any) => [p.id, p]));
+            const map = new Map<string, any>(apiItems.map((p: any) => [String(p.id), p]));
             for (const c of customArr) {
               if (!c) continue;
-              const existing = map.get(c.id);
+              const targetId = String(c.id || `prod-${Date.now()}`);
+              const existing = map.get(targetId);
               const merged = {
-                ...(existing || ({} as CardProduct)),
+                ...(existing || {}),
                 ...c,
+                id: targetId,
                 mrp: String(c.mrp),
                 offerPrice: String(c.offerPrice),
               };
-              map.set(c.id || existing?.id || `prod-${Date.now()}`, merged);
+              map.set(targetId, merged);
             }
             apiItems = Array.from(map.values());
           }
