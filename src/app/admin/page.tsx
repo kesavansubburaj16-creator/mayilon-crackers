@@ -66,11 +66,18 @@ type EstimateRow = {
   address?: string;
   itemCount: number;
   grandTotal: string;
+  subtotal?: string;
   status: string;
   paymentStatus?: string;
   paymentMethod?: string;
   createdAt: string;
   adminNote?: string | null;
+  items?: any[];
+  dealerName?: string;
+  gstNumber?: string;
+  transportName?: string;
+  deliveryLocation?: string;
+  instructions?: string;
 };
 
 type ProductItem = {
@@ -600,7 +607,7 @@ export default function AdminPage() {
 
   const dashTotalOrdersCount = estimates.length;
   const dashTotalRevenue = estimates.reduce(
-    (sum, e) => sum + (Number(e.grandTotal) || Number(e.subtotal) || 0),
+    (sum, e) => sum + (Number(e.grandTotal) || Number(e.subtotal || 0) || 0),
     0,
   );
   const dashPaidRevenue = estimates.reduce((sum, e) => {
@@ -610,7 +617,7 @@ export default function AdminPage() {
       e.status === "PAYMENT RECEIVED" ||
       e.status === "SHIPPED"
     ) {
-      return sum + (Number(e.grandTotal) || Number(e.subtotal) || 0);
+      return sum + (Number(e.grandTotal) || Number(e.subtotal || 0) || 0);
     }
     return sum;
   }, 0);
