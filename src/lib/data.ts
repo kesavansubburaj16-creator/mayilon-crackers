@@ -61,9 +61,9 @@ function getInMemoryProducts(): ProductWithCategory[] {
     const cat = catMap.get(catSlug);
     if (!cat) continue;
     rows.forEach((row, idx) => {
-      const [name, mrp, packing, pieces, flags = "", customImg] = row;
+      const [name, mrp, packing, pieces, flags = "", customImg, customOffer] = row;
       const discount = 80;
-      const offer = Math.round((mrp * 20) / 100);
+      const offer = customOffer ?? Math.round((mrp * 20) / 100);
       const img = customImg ?? IMAGE_POOL[n % IMAGE_POOL.length];
       list.push({
         id: `prod-${n + 1}`,
