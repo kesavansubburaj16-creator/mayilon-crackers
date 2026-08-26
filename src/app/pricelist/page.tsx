@@ -19,16 +19,17 @@ export default function PriceListPage() {
         const json = await res.json();
         let list = json?.data?.items || [];
         
-        // Merge Local Storage Backup for instant offline/custom products
+        // Only append custom items from local storage that are NOT in list
         try {
           const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
           if (localRaw) {
             const localProds = JSON.parse(localRaw);
-            if (Array.isArray(localProds)) {
-              const map = new Map();
-              for (const p of list) if (p && p.id) map.set(p.id, p);
-              for (const p of localProds) if (p && p.id) map.set(p.id, p);
-              list = Array.from(map.values());
+            if (Array.isArray(localProds) && localProds.length > 0) {
+              const existingSkus = new Set(list.map((p: any) => p.sku || p.id));
+              const extraCustom = localProds.filter((c: any) => c && c.sku && !existingSkus.has(c.sku) && !existingSkus.has(c.id));
+              if (extraCustom.length > 0) {
+                list = [...list, ...extraCustom];
+              }
             }
           }
         } catch (err) {}

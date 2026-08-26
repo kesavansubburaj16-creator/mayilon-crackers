@@ -71,10 +71,11 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                   categoryName: String(c.categoryName || "Special Fireworks"),
                 }));
 
-              const map = new Map<string, Hit>();
-              for (const h of list) map.set(h.id, h);
-              for (const cm of customMatches) map.set(cm.id, cm);
-              list = Array.from(map.values());
+              const existingSkus = new Set(list.map((h: any) => h.sku || h.id));
+              const extraMatches = customMatches.filter((cm: any) => !existingSkus.has(cm.sku) && !existingSkus.has(cm.id));
+              if (extraMatches.length > 0) {
+                list = [...list, ...extraMatches];
+              }
             }
           }
         } catch (err) {}
