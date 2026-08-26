@@ -32,28 +32,21 @@ export function ProductBrowser({
         const json = await res.json();
         let apiItems = json?.data?.items || [];
 
-        // Merge with local backup if available
-        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
-        if (localRaw) {
-          const customArr = JSON.parse(localRaw);
-          if (Array.isArray(customArr) && customArr.length > 0) {
-            const map = new Map<string, any>(apiItems.map((p: any) => [String(p.id), p]));
-            for (const c of customArr) {
-              if (!c) continue;
-              const targetId = String(c.id || `prod-${Date.now()}`);
-              const existing = map.get(targetId);
-              const merged = {
-                ...(existing || {}),
-                ...c,
-                id: targetId,
-                mrp: String(c.mrp),
-                offerPrice: String(c.offerPrice),
-              };
-              map.set(targetId, merged);
+        // Only append custom items from local storage that are NOT in apiItems
+        try {
+          const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
+          if (localRaw) {
+            const customArr = JSON.parse(localRaw);
+            if (Array.isArray(customArr) && customArr.length > 0) {
+              const existingSkus = new Set(apiItems.map((p: any) => p.sku || p.id));
+              const extraCustom = customArr.filter((c: any) => c && c.sku && !existingSkus.has(c.sku) && !existingSkus.has(c.id));
+              if (extraCustom.length > 0) {
+                apiItems = [...apiItems, ...extraCustom];
+              }
             }
-            apiItems = Array.from(map.values());
           }
-        }
+        } catch (lErr) {}
+
         if (apiItems.length > 0) setDisplayItems(apiItems);
       } catch (err) {}
     }
