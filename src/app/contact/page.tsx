@@ -126,8 +126,9 @@ export default function ContactPage() {
         <Reveal delay={0.08}>
           <div className="space-y-4">
             {[
-              { icon: Phone, t: "Call Sales", d: SITE.phone, href: `tel:${SITE.phoneRaw}` },
-              { icon: MessageCircle, t: "WhatsApp", d: "Instant price list & photos", href: waLink("Hi Mayilon Crackers!") },
+              { icon: Phone, t: "Official Sales Hotline", d: `${SITE.phone} / ${SITE.phoneAlt1}`, href: `tel:${SITE.phoneRaw}` },
+              { icon: Phone, t: "Orders & Bulk Enquiries", d: `${SITE.phoneAlt2}`, href: `tel:${SITE.phoneAlt2Raw}` },
+              { icon: MessageCircle, t: "WhatsApp", d: `${SITE.phone} (Instant Price List & Orders)`, href: waLink("Hi Mayilon Crackers!") },
               { icon: Mail, t: "Email", d: SITE.email, href: `mailto:${SITE.email}` },
             ].map((c) => (
               <a

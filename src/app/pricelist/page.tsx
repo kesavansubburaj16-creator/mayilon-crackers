@@ -140,7 +140,7 @@ export default function PriceListPage() {
               Sivakasi Wholesale Crackers Factory Direct · ISO 9001:2015 PESO Certified
             </p>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              142/3A Viswanatham Road, Sivakasi, Tamil Nadu - 626123 · Phone: +91 94888 88888
+              142/3A Viswanatham Road, Sivakasi, Tamil Nadu - 626123 · Phone: +91 70101 16061 / 99949 48674 / 97865 10405
             </p>
           </div>
 
@@ -212,7 +212,7 @@ export default function PriceListPage() {
             MAYILON PYROWORLD · 100% Genuine Sivakasi Fireworks Factory Outlet
           </p>
           <p>
-            For Bulk Enquiries & Custom Quotations: Call <span className="font-bold text-red-600">+91 94888 88888</span> / WhatsApp <span className="font-bold text-emerald-600">+91 94888 88888</span>
+            For Bulk Enquiries & Custom Quotations: Call <span className="font-bold text-red-600">+91 70101 16061 / 99949 48674 / 97865 10405</span> | WhatsApp <span className="font-bold text-emerald-600">+91 70101 16061</span>
           </p>
           <p className="text-[10px] text-slate-400">
             Legal Note: As per Supreme Court directive & PESO guidelines, fireworks orders are packed for door delivery through licensed transport carriers. Price List valid for 2026 season.
