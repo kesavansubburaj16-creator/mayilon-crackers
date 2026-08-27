@@ -172,8 +172,9 @@ export default function AdminPage() {
   // Notification Toast State
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
-  // Payment Modal State
+  // Payment & Packing Modal State
   const [paymentModalOrder, setPaymentModalOrder] = useState<EstimateRow | null>(null);
+  const [viewPackingOrder, setViewPackingOrder] = useState<EstimateRow | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -902,7 +903,15 @@ export default function AdminPage() {
                             </td>
 
                             {/* 4. Items */}
-                            <td className="py-4 px-3 text-center font-bold text-slate-800">{e.itemCount} pcs</td>
+                            <td className="py-4 px-3 text-center">
+                              <p className="font-bold text-slate-800 text-sm">{e.itemCount} pcs</p>
+                              <button
+                                onClick={() => setViewPackingOrder(e)}
+                                className="mt-1.5 inline-flex items-center gap-1 rounded-xl border border-purple-300 bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-600 hover:text-white transition shadow-sm"
+                              >
+                                <Package size={12} /> View Items ({e.itemCount})
+                              </button>
+                            </td>
 
                             {/* 5. Grand Total */}
                             <td className="py-4 px-3 text-right font-bold text-red-600 font-display text-base">
@@ -1738,6 +1747,142 @@ export default function AdminPage() {
                 >
                   Confirm via PayU
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        {/* ORDER PACKING & DISPATCH ITEMS MODAL */}
+        {viewPackingOrder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm print:p-0 print:bg-white"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200 print:max-w-none print:shadow-none print:border-none print:p-0 print:max-h-none"
+            >
+              {/* Header Bar - Hidden in Print */}
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6 print:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-100 text-purple-700 font-extrabold shadow-sm">
+                    <Package size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-xl font-extrabold text-slate-900">
+                      Order Dispatch Packing Slip — #{viewPackingOrder.estimateNumber}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-500 mt-0.5">
+                      Order Date: {new Date(viewPackingOrder.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 transition shadow-md"
+                  >
+                    <Printer size={15} /> Print Packing Slip
+                  </button>
+                  <button
+                    onClick={() => setViewPackingOrder(null)}
+                    className="rounded-xl border border-slate-200 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Dispatch Slip Content */}
+              <div className="space-y-6">
+                {/* Factory Header for Printed Slip */}
+                <div className="hidden print:block border-b-2 border-red-600 pb-4 mb-6">
+                  <h1 className="font-display text-2xl font-extrabold text-slate-900">MAYILON PYROWORLD — Sivakasi Factory Dispatch</h1>
+                  <p className="text-xs font-bold text-slate-600">Order Ref: #{viewPackingOrder.estimateNumber} · Date: {new Date(viewPackingOrder.createdAt || Date.now()).toLocaleDateString("en-IN")}</p>
+                </div>
+
+                {/* Customer & Shipping Summary Grid */}
+                <div className="grid gap-4 sm:grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[2px] text-slate-400">Customer Details</p>
+                    <p className="font-display text-base font-extrabold text-slate-900 mt-1">{viewPackingOrder.customerName}</p>
+                    <a href={`https://wa.me/91${viewPackingOrder.mobile}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 mt-0.5">
+                      <MessageCircle size={13} /> +91 {viewPackingOrder.mobile}
+                    </a>
+                    {viewPackingOrder.email && <p className="text-xs text-slate-500 font-medium">{viewPackingOrder.email}</p>}
+                    {viewPackingOrder.gstNumber && <p className="text-xs font-bold text-slate-700 mt-1">GSTIN: {viewPackingOrder.gstNumber}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[2px] text-slate-400">Dispatch Address & Transport</p>
+                    <p className="text-xs font-bold text-slate-800 leading-relaxed mt-1">{viewPackingOrder.address || "Direct Sivakasi Licensed Address"}</p>
+                    <p className="text-xs font-bold text-slate-600 mt-0.5">
+                      {[viewPackingOrder.city, viewPackingOrder.district, viewPackingOrder.state].filter(Boolean).join(", ")}
+                    </p>
+                    <p className="text-xs font-extrabold text-purple-700 mt-2">
+                      🚚 Transport: {viewPackingOrder.transportName || "Direct Factory Transport"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Itemized Order Products Table */}
+                <div>
+                  <h4 className="text-xs font-extrabold uppercase tracking-[2px] text-slate-500 mb-3">
+                    Ordered Products List (Total {viewPackingOrder.items?.length || viewPackingOrder.itemCount} Items)
+                  </h4>
+                  <table className="w-full text-left text-xs border-collapse border border-slate-200 rounded-xl overflow-hidden">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-700">
+                        <th className="py-2.5 px-3 text-center w-10">S.No</th>
+                        <th className="py-2.5 px-3">Product Name</th>
+                        <th className="py-2.5 px-3 w-32">SKU Code</th>
+                        <th className="py-2.5 px-3 w-28">Packing</th>
+                        <th className="py-2.5 px-3 text-center w-16">Quantity</th>
+                        <th className="py-2.5 px-3 text-right w-24">Offer Rate</th>
+                        <th className="py-2.5 px-3 text-right w-28 text-red-600">Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {(viewPackingOrder.items && viewPackingOrder.items.length > 0) ? (
+                        viewPackingOrder.items.map((item: any, idx: number) => (
+                          <tr key={item.id || idx} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-3 text-center font-bold text-slate-400">{idx + 1}</td>
+                            <td className="py-2.5 px-3 font-extrabold text-slate-900">{item.name}</td>
+                            <td className="py-2.5 px-3 text-slate-500 font-bold">{item.sku}</td>
+                            <td className="py-2.5 px-3 text-slate-600 font-medium">{item.packing}</td>
+                            <td className="py-2.5 px-3 text-center font-extrabold text-slate-900 text-sm bg-purple-50/50">{item.quantity}</td>
+                            <td className="py-2.5 px-3 text-right text-slate-600 font-medium">₹{Number(item.price).toFixed(2)}</td>
+                            <td className="py-2.5 px-3 text-right font-extrabold text-red-600">₹{Number(item.lineTotal || (Number(item.price) * item.quantity)).toFixed(2)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-slate-500 font-bold">
+                            Order contains {viewPackingOrder.itemCount} items. Total Amount: {formatINR(Number(viewPackingOrder.grandTotal))}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary Footer */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500">Pipeline Status:</span>
+                    <span className="rounded-full bg-purple-100 border border-purple-300 px-3 py-1 text-xs font-extrabold text-purple-800 uppercase">
+                      {viewPackingOrder.status}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-slate-500 mr-2">Grand Total Amount:</span>
+                    <span className="font-display text-2xl font-extrabold text-red-600">
+                      {formatINR(Number(viewPackingOrder.grandTotal))}
+                    </span>
+                  </div>
+                </div>
+
               </div>
             </motion.div>
           </motion.div>

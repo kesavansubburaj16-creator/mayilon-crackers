@@ -1,8 +1,6 @@
-/**
- * Universal Zero-Loss Order Storage System for Mayilon Pyroworld.
- * Guarantees that 100% of placed orders are saved with all selected products,
- * full customer addresses, and instantly synced to the Admin Portal and Invoice pages.
- */
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 export type OrderItemRecord = {
   id: string;
@@ -49,6 +47,25 @@ export type OrderRecord = {
   items: OrderItemRecord[];
 };
 
+const DATA_FILE = path.join(os.tmpdir(), "mayilon_orders.json");
+
+function syncFileSave(orders: OrderRecord[]) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(orders), "utf-8");
+  } catch (err) {}
+}
+
+function syncFileLoad(): OrderRecord[] {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, "utf-8");
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    }
+  } catch (err) {}
+  return [];
+}
+
 type GlobalWithOrders = typeof globalThis & {
   __mayilonOrdersStore?: Map<string, OrderRecord>;
 };
@@ -56,14 +73,27 @@ type GlobalWithOrders = typeof globalThis & {
 const g = globalThis as GlobalWithOrders;
 if (!g.__mayilonOrdersStore) {
   g.__mayilonOrdersStore = new Map<string, OrderRecord>();
+  // Pre-fill from persistent disk file
+  const saved = syncFileLoad();
+  for (const item of saved) {
+    if (item && item.estimateNumber) {
+      g.__mayilonOrdersStore.set(item.estimateNumber, item);
+    }
+  }
 }
 
 const STORE = g.__mayilonOrdersStore;
 
-/** Save order to universal store */
+/** Save order to universal store and disk backup */
 export function saveOrderToStore(order: OrderRecord): OrderRecord {
-  STORE.set(order.estimateNumber, order);
-  return order;
+  const existing = STORE.get(order.estimateNumber);
+  const finalOrder: OrderRecord = {
+    ...order,
+    createdAt: existing?.createdAt || order.createdAt || new Date().toISOString(),
+  };
+  STORE.set(finalOrder.estimateNumber, finalOrder);
+  syncFileSave(Array.from(STORE.values()));
+  return finalOrder;
 }
 
 /** Retrieve order by estimate number */
@@ -74,11 +104,11 @@ export function getOrderFromStore(estimateNumber: string): OrderRecord | undefin
 /** Get all orders for Admin portal (sorted newest first) */
 export function getAllOrdersFromStore(): OrderRecord[] {
   return Array.from(STORE.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
   );
 }
 
-/** Update order status in store (e.g. from Admin portal) */
+/** Update order status in store without clearing order history or date */
 export function updateOrderStatusInStore(
   estimateNumber: string,
   patch: Partial<Pick<OrderRecord, "status" | "paymentStatus" | "paymentMethod">>,
@@ -89,7 +119,9 @@ export function updateOrderStatusInStore(
   const updated: OrderRecord = {
     ...existing,
     ...patch,
+    createdAt: existing.createdAt || new Date().toISOString(),
   };
   STORE.set(estimateNumber, updated);
+  syncFileSave(Array.from(STORE.values()));
   return updated;
 }
