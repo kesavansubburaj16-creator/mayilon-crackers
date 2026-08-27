@@ -186,6 +186,7 @@ export const SEED_PRODUCTS: Record<string, [string, number, string, number, stri
     ["Ground Chakkar Special", 380, "1 Box (10 Pcs)", 10, "F", undefined, 76],
     ["Ground Chakkar Deluxe", 625, "1 Box (10 Pcs)", 10, "P", undefined, 125],
     ["Spinner Deluxe", 850, "1 Box (5 Pcs)", 5, "N", undefined, 170],
+    ["wire chakkar", 1000, "1 Box", 10, "N", undefined, 200],
   ],
 
   "twinkling-star": [
@@ -262,7 +263,7 @@ export const SEED_PRODUCTS: Record<string, [string, number, string, number, stri
     ["4\" Double Piece", 3950, "1 Box (1 Pc)", 1, "P", undefined, 790],
     ["4\" Nayagara Falls Gold", 1600, "1 Box (1 Pc)", 1, "PN", undefined, 320],
     ["4\" Nayagara Falls Crackling", 1600, "1 Box (1 Pc)", 1, "PN", undefined, 320],
-    ["Diwali Fabulous Celebration (16 Shot)", 8000, "1 Box (1 Pc)", 1, "PN", undefined, 1600],
+    ["Diwali Fabulous Celebration (16 Shot)", 12500, "1 Box (1 Pc)", 1, "PN", undefined, 2500],
   ],
 
   "multi-shots": [
@@ -310,14 +311,14 @@ export const SEED_PRODUCTS: Record<string, [string, number, string, number, stri
   ],
 
   "gift-boxes": [
-    ["21 Items", 1500, "1 Box", 21, "B", undefined, 300],
-    ["31 Items", 2500, "1 Box", 31, "F", undefined, 500],
-    ["41 Items", 3800, "1 Box", 41, "F", undefined, 760],
-    ["51 Items", 5200, "1 Box", 51, "P", undefined, 1040],
-    ["Family Combo Pack", 6500, "1 Box", 40, "FP", undefined, 1300],
-    ["VIP Family Pack", 8500, "1 Box", 65, "PN", undefined, 1700],
-    ["Varam", 1200, "1 BOX (10 PCS)", 10, "N", undefined, 240],
-    ["karam", 1400, "1 BOX (10 PCS)", 10, "N", undefined, 280],
+    ["25 Items (10pc packs)", 1875, "1 Box", 25, "B", undefined, 375],
+    ["30 Items (10pc packs)", 2200, "1 Box", 30, "F", undefined, 440],
+    ["35 Items (10pc packs)", 2700, "1 Box", 35, "F", undefined, 540],
+    ["42 Items (10pc packs)", 4000, "1 Box", 42, "P", undefined, 800],
+    ["50 Items (10pc packs)", 5000, "1 Box", 50, "PN", undefined, 1000],
+    ["30 Items (5pc packs)", 2000, "1 Box", 30, "FP", undefined, 400],
+    ["40 Items (5pc packs)", 3000, "1 Box", 40, "FP", undefined, 600],
+    ["50 Items (5pc packs)", 4000, "1 Box", 50, "PN", undefined, 800],
   ],
 };
 
