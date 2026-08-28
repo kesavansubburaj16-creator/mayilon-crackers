@@ -1054,12 +1054,6 @@ export default function AdminPage() {
                     <span>Product Catalogue ({filteredProducts.length})</span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={handleClearAllProducts}
-                        className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                      >
-                        <Trash2 size={14} /> Clear All (Fresh Start)
-                      </button>
-                      <button
                         onClick={openAddProduct}
                         className="btn-gold flex items-center gap-2 px-5 py-2.5 text-[12.5px] uppercase font-bold"
                       >
