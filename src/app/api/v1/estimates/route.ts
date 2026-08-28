@@ -182,17 +182,46 @@ export async function POST(req: Request) {
   );
 }
 
-/** Admin listing (Merges Store + DB) */
+/** Admin listing (Merges Store + DB with full items) */
 export async function GET() {
   const storeOrders = getAllOrdersFromStore();
   let dbRows: any[] = [];
 
   try {
-    dbRows = await db
+    const rawEstimates = await db
       .select()
       .from(estimates)
-      .orderBy(estimates.createdAt)
-      .limit(100);
+      .orderBy(desc(estimates.createdAt))
+      .limit(150);
+
+    for (const est of rawEstimates) {
+      try {
+        const itemRows = await db
+          .select()
+          .from(estimateItems)
+          .where(eq(estimateItems.estimateId, est.id));
+
+        const formattedItems = itemRows.map((it) => ({
+          id: it.id,
+          sku: it.sku,
+          name: it.name,
+          categoryName: it.categoryName || "Fireworks",
+          packing: it.packing || "1 Pack",
+          imageUrl: it.imageUrl || "",
+          mrp: String(it.mrp),
+          price: String(it.price),
+          quantity: it.quantity,
+          lineTotal: String(it.lineTotal),
+        }));
+
+        dbRows.push({
+          ...est,
+          items: formattedItems,
+        });
+      } catch (iErr) {
+        dbRows.push(est);
+      }
+    }
   } catch (err) {
     console.warn("[GET /estimates] DB read fallback:", err);
   }
@@ -200,16 +229,21 @@ export async function GET() {
   // Merge store orders and db rows, avoiding duplicates by estimateNumber
   const map = new Map<string, any>();
   for (const o of storeOrders) {
-    map.set(o.estimateNumber, o);
+    if (o && o.estimateNumber) map.set(o.estimateNumber, o);
   }
   for (const r of dbRows) {
-    if (!map.has(r.estimateNumber)) {
-      map.set(r.estimateNumber, r);
+    if (r && r.estimateNumber) {
+      const existing = map.get(r.estimateNumber);
+      map.set(r.estimateNumber, {
+        ...(existing || {}),
+        ...r,
+        items: (existing?.items && existing.items.length > 0) ? existing.items : r.items || [],
+      });
     }
   }
 
   const items = Array.from(map.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
   );
 
   return ok({ items, total: items.length });
