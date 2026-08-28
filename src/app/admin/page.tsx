@@ -239,19 +239,33 @@ export default function AdminPage() {
       let list = e?.success && Array.isArray(e?.data?.items) ? e.data.items : [];
 
       try {
-        const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_recent_orders") : null;
-        if (localRaw) {
-          const localOrders = JSON.parse(localRaw);
-          if (Array.isArray(localOrders)) {
-            const map = new Map();
-            for (const o of list) map.set(o.estimateNumber, o);
-            for (const o of localOrders) {
-              if (o && o.estimateNumber && !map.has(o.estimateNumber)) {
-                map.set(o.estimateNumber, o);
-              }
+        if (typeof window !== "undefined") {
+          const map = new Map();
+          for (const o of list) if (o && o.estimateNumber) map.set(o.estimateNumber, o);
+
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith("mayilon_order_") || k === "mayilon_recent_orders")) {
+              try {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                  const item = JSON.parse(raw);
+                  if (Array.isArray(item)) {
+                    for (const o of item) {
+                      if (o && o.estimateNumber) {
+                        const existing = map.get(o.estimateNumber);
+                        map.set(o.estimateNumber, { ...o, ...existing });
+                      }
+                    }
+                  } else if (item && item.estimateNumber) {
+                    const existing = map.get(item.estimateNumber);
+                    map.set(item.estimateNumber, { ...item, ...existing });
+                  }
+                }
+              } catch (e) {}
             }
-            list = Array.from(map.values());
           }
+          list = Array.from(map.values());
         }
       } catch (localErr) {
         console.warn("[Admin load] Local order backup merge note:", localErr);
