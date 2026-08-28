@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { LogoMark } from "@/components/brand/Logo";
 import { EstimateActions } from "@/components/estimate/EstimateActions";
