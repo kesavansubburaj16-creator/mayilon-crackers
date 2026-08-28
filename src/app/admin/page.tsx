@@ -21,6 +21,7 @@ import {
   PackageCheck,
   PackageX,
   Plus,
+  Printer,
   QrCode,
   Receipt,
   Search,
