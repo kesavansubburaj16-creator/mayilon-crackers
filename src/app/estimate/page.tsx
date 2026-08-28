@@ -727,9 +727,12 @@ export default function CheckoutPage() {
                 <Row label={`Coupon (${coupon.toUpperCase()})`} value={`- ${formatINR(totals.discount)}`} accent="verde" />
               )}
               <Row
-                label="Transport charge"
-                value={totals.transportCharge === 0 ? "FREE" : formatINR(totals.transportCharge)}
+                label="Transport / Delivery charge"
+                value={formatINR(totals.transportCharge)}
               />
+              <p className="text-[11px] font-bold text-slate-500 italic mt-0.5 border-b border-slate-100 pb-2">
+                🚚 Delivery charges apply based on destination location & transport carrier.
+              </p>
               <Row label="GST 18%" value={formatINR(totals.gstAmount)} />
             </div>
 
