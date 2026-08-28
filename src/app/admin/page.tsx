@@ -258,6 +258,47 @@ export default function AdminPage() {
       }
 
       setEstimates(list);
+
+      if (list.length > 0) {
+        const totalPipeline = list.reduce((sum: number, o: any) => sum + (Number(o.grandTotal) || 0), 0);
+        const deliveredOrders = list.filter((o: any) => o.status === "DELIVERED" || o.status === "SHIPPED").length;
+
+        const statusMap: Record<string, { count: number; value: number }> = {};
+        for (const o of list) {
+          const st = o.status || "NEW";
+          if (!statusMap[st]) statusMap[st] = { count: 0, value: 0 };
+          statusMap[st].count += 1;
+          statusMap[st].value += Number(o.grandTotal) || 0;
+        }
+
+        const byStatus = Object.entries(statusMap).map(([status, d]) => ({
+          status,
+          count: d.count,
+          value: d.value,
+        }));
+
+        setStats((prev: any) => ({
+          ...prev,
+          kpis: {
+            pipeline: totalPipeline,
+            estimateCount: list.length,
+            avgValue: totalPipeline / list.length,
+            todayCount: list.length,
+            todayValue: totalPipeline,
+            pending: statusMap["NEW"]?.count ?? 0,
+            conversionRate: (deliveredOrders / list.length) * 100,
+            products: prev?.kpis?.products || 115,
+            dealers: prev?.kpis?.dealers || 0,
+            enquiries: prev?.kpis?.enquiries || 0,
+            subscribers: prev?.kpis?.subscribers || 0,
+          },
+          byStatus: byStatus.length > 0 ? byStatus : prev?.byStatus || [],
+          recentEstimates: list.slice(0, 10),
+          lowStock: prev?.lowStock || [],
+          topProducts: prev?.topProducts || [],
+          activity: prev?.activity || [],
+        }));
+      }
     } catch {}
 
     try {
