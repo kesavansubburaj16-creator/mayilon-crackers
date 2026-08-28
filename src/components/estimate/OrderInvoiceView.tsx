@@ -23,38 +23,51 @@ export function OrderInvoiceView({
   const [items, setItems] = useState<any[]>(initialItems || []);
 
   useEffect(() => {
-    // If initial server data is fallback or missing, load real placed order from localStorage
-    const isFallback =
-      !initialEstimate ||
-      initialEstimate.id === "est-fallback" ||
-      initialEstimate.customerName === "Valued Customer";
+    let timerId: any;
 
-    if (isFallback) {
+    async function syncLiveStatus() {
       try {
-        let localRaw = localStorage.getItem(`mayilon_order_${number}`);
-        if (!localRaw) {
-          const recentsRaw = localStorage.getItem("mayilon_recent_orders");
-          if (recentsRaw) {
-            const recents = JSON.parse(recentsRaw);
-            if (Array.isArray(recents) && recents.length > 0) {
-              localRaw = JSON.stringify(recents[0]);
-            }
+        const res = await fetch(`/api/v1/estimates/${number}`);
+        const json = await res.json();
+        if (json?.success && json?.data?.estimate) {
+          const liveEst = json.data.estimate;
+          const liveItems = json.data.items;
+
+          setEstimate(liveEst);
+          if (Array.isArray(liveItems) && liveItems.length > 0) {
+            setItems(liveItems);
           }
-        }
-        if (localRaw) {
-          const parsed = JSON.parse(localRaw);
-          if (parsed) {
-            setEstimate(parsed);
-            if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-              setItems(parsed.items);
-            }
-          }
+
+          // Keep local storage updated with live server status
+          try {
+            localStorage.setItem(`mayilon_order_${number}`, JSON.stringify(liveEst));
+          } catch (e) {}
         }
       } catch (err) {
-        console.warn("[OrderInvoiceView] Error reading local order backup:", err);
+        // Fallback to localStorage if offline
+        try {
+          const localRaw = localStorage.getItem(`mayilon_order_${number}`);
+          if (localRaw) {
+            const parsed = JSON.parse(localRaw);
+            if (parsed) {
+              setEstimate((prev: any) => ({ ...parsed, status: prev?.status || parsed.status }));
+              if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+                setItems(parsed.items);
+              }
+            }
+          }
+        } catch (lErr) {}
       }
     }
-  }, [number, initialEstimate]);
+
+    // Run live sync immediately
+    syncLiveStatus();
+
+    // Poll live status every 4 seconds for instant tracker updates
+    timerId = setInterval(syncLiveStatus, 4000);
+
+    return () => clearInterval(timerId);
+  }, [number]);
 
   const activeEst = estimate || {
     id: "est-fallback",
@@ -114,7 +127,12 @@ export function OrderInvoiceView({
 
       {/* status tracker */}
       <div className="glass mb-8 rounded-[26px] p-6 border border-red-500/15 bg-white shadow-md print:hidden">
-        <p className="mb-5 text-[11px] font-bold uppercase tracking-[3px] text-red-600">Order Delivery Tracker</p>
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-[3px] text-red-600">Order Delivery Tracker</p>
+          <span className="text-xs font-extrabold uppercase px-3.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
+            Current Status: {activeEst.status}
+          </span>
+        </div>
         <div className="flex flex-wrap gap-y-4">
           {STAGES.map((s, i) => (
             <div key={s} className="flex min-w-[110px] flex-1 items-center gap-2">
@@ -125,7 +143,7 @@ export function OrderInvoiceView({
                     : "border border-slate-300 bg-slate-100 text-slate-400"
                 }`}
               >
-                {i + 1}
+                {i <= stageIndex ? "✓" : i + 1}
               </span>
               <span className={`text-[11.5px] font-bold ${i <= stageIndex ? "text-slate-900" : "text-slate-400"}`}>
                 {s}
