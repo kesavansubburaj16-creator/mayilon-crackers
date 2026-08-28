@@ -66,6 +66,42 @@ function syncFileLoad(): OrderRecord[] {
   return [];
 }
 
+const INITIAL_SEED_ORDERS: OrderRecord[] = [
+  {
+    id: "est-2608-905083",
+    estimateNumber: "MYL-2608-905083",
+    customerName: "SUJIT",
+    mobile: "8667038564",
+    email: "sujit@gmail.com",
+    state: "Tamil Nadu",
+    district: "Chennai",
+    city: "Chennai",
+    pincode: "600100",
+    address: "ffdfsdf, Chennai, Chennai, Tamil Nadu, 600100",
+    transportName: "Direct Factory Transport (Sivakasi Licensed Dispatch)",
+    paymentMethod: "COD",
+    paymentStatus: "UNPAID",
+    status: "NEW",
+    itemCount: 5,
+    mrpTotal: "71325.00",
+    subtotal: "14265.00",
+    savings: "58486.50",
+    discount: "1426.50",
+    transportCharge: "449.35",
+    gstAmount: "2310.93",
+    grandTotal: "15598.78",
+    couponCode: "DEEPAVALI10",
+    createdAt: "2026-08-28T09:50:00.000Z",
+    items: [
+      { id: "1", sku: "MYL-SKY-07", name: "4\" Glory Series", categoryName: "Aerial Shots", packing: "1 Box (1 Pc)", mrp: "2300.00", price: "460.00", quantity: 15, lineTotal: "6900.00" },
+      { id: "2", sku: "MYL-SKY-06", name: "3.5\" Double Ball", categoryName: "Aerial Shots", packing: "1 Box (1 Pc)", mrp: "2100.00", price: "420.00", quantity: 6, lineTotal: "2520.00" },
+      { id: "3", sku: "MYL-SKY-05", name: "3.5\" Knight Series (2 Pc)", categoryName: "Aerial Shots", packing: "1 Box (2 Pcs)", mrp: "2625.00", price: "525.00", quantity: 6, lineTotal: "3150.00" },
+      { id: "4", sku: "MYL-SKY-04", name: "3.5\" Single Smash", categoryName: "Aerial Shots", packing: "1 Box (1 Pc)", mrp: "1575.00", price: "315.00", quantity: 3, lineTotal: "945.00" },
+      { id: "5", sku: "MYL-SKY-03", name: "2\" Fancy (3 Pc)", categoryName: "Aerial Shots", packing: "1 Box (3 Pcs)", mrp: "1250.00", price: "250.00", quantity: 3, lineTotal: "750.00" },
+    ],
+  },
+];
+
 type GlobalWithOrders = typeof globalThis & {
   __mayilonOrdersStore?: Map<string, OrderRecord>;
 };
@@ -73,9 +109,10 @@ type GlobalWithOrders = typeof globalThis & {
 const g = globalThis as GlobalWithOrders;
 if (!g.__mayilonOrdersStore) {
   g.__mayilonOrdersStore = new Map<string, OrderRecord>();
-  // Pre-fill from persistent disk file
+  // Pre-fill from persistent disk file or initial seed orders
   const saved = syncFileLoad();
-  for (const item of saved) {
+  const initial = saved.length > 0 ? saved : INITIAL_SEED_ORDERS;
+  for (const item of initial) {
     if (item && item.estimateNumber) {
       g.__mayilonOrdersStore.set(item.estimateNumber, item);
     }
