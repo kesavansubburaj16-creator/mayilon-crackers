@@ -902,15 +902,40 @@ export default function AdminPage() {
                               </p>
                             </td>
 
-                            {/* 4. Items */}
-                            <td className="py-4 px-3 text-center">
-                              <p className="font-bold text-slate-800 text-sm">{e.itemCount} pcs</p>
-                              <button
-                                onClick={() => setViewPackingOrder(e)}
-                                className="mt-1.5 inline-flex items-center gap-1 rounded-xl border border-purple-300 bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-600 hover:text-white transition shadow-sm"
-                              >
-                                <Package size={12} /> View Items ({e.itemCount})
-                              </button>
+                            {/* 4. Items List & Packing Slip Trigger */}
+                            <td className="py-4 px-3 min-w-[210px]">
+                              <div className="flex flex-col gap-1.5">
+                                <span className="font-extrabold text-slate-900 text-xs">
+                                  📦 {e.items?.length || e.itemCount} Products Ordered
+                                </span>
+
+                                {e.items && e.items.length > 0 ? (
+                                  <div className="space-y-1 rounded-xl bg-slate-100/90 p-2.5 text-[11.5px] border border-slate-200 shadow-inner">
+                                    {e.items.slice(0, 5).map((it: any, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between gap-2">
+                                        <span className="font-bold text-slate-800 truncate max-w-[140px]">{it.name}</span>
+                                        <span className="font-extrabold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.2 rounded text-[10.5px]">x{it.quantity}</span>
+                                      </div>
+                                    ))}
+                                    {e.items.length > 5 && (
+                                      <p className="text-[10px] font-bold text-slate-500 italic pt-0.5 text-center">
+                                        + {e.items.length - 5} more products
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] text-slate-500 font-medium italic">
+                                    Total {e.itemCount} items in this estimate
+                                  </p>
+                                )}
+
+                                <button
+                                  onClick={() => setViewPackingOrder(e)}
+                                  className="flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-[11px] font-extrabold shadow-sm transition"
+                                >
+                                  <Package size={13} /> View & Print Packing Slip
+                                </button>
+                              </div>
                             </td>
 
                             {/* 5. Grand Total */}
