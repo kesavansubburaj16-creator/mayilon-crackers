@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { BrowserControls } from "./BrowserControls";
 import { ProductCard, type CardProduct } from "./ProductCard";
 import { useEstimate } from "@/components/estimate/EstimateProvider";
 import { formatINR } from "@/lib/estimate";
 import type { CategorySummary } from "@/lib/data";
+import { slugify } from "@/lib/slug";
 
 export function ProductBrowser({
   items,
@@ -18,6 +20,11 @@ export function ProductBrowser({
   categories: CategorySummary[];
   total: number;
 }) {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get("category");
+  const queryParam = searchParams.get("q")?.toLowerCase();
+  const flagParam = searchParams.get("flag");
+
   const [view, setView] = useState<"grid" | "list">("grid");
   const [displayItems, setDisplayItems] = useState<CardProduct[]>(items);
   const { add } = useEstimate();
@@ -47,11 +54,34 @@ export function ProductBrowser({
           }
         } catch (lErr) {}
 
-        if (apiItems.length > 0) setDisplayItems(apiItems);
+        // Strictly preserve active Category Filter
+        if (categoryParam && categoryParam !== "all") {
+          const activeCat = categories.find((c) => c.slug === categoryParam);
+          const activeCatName = activeCat ? activeCat.name.toLowerCase() : "";
+          apiItems = apiItems.filter((p: any) => {
+            const pSlug = p.categorySlug || p.category?.slug || slugify(p.categoryName || "");
+            const pName = (p.categoryName || "").toLowerCase();
+            return pSlug === categoryParam || (activeCatName && pName.includes(activeCatName));
+          });
+        }
+
+        // Strictly preserve Search Query Filter
+        if (queryParam) {
+          apiItems = apiItems.filter((p: any) => {
+            const name = (p.name || "").toLowerCase();
+            const sku = (p.sku || "").toLowerCase();
+            const cat = (p.categoryName || "").toLowerCase();
+            return name.includes(queryParam) || sku.includes(queryParam) || cat.includes(queryParam);
+          });
+        }
+
+        if (apiItems.length > 0 || categoryParam || queryParam) {
+          setDisplayItems(apiItems);
+        }
       } catch (err) {}
     }
     syncLiveProducts();
-  }, [items]);
+  }, [items, categoryParam, queryParam, flagParam, categories]);
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[270px_1fr]">
