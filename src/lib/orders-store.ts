@@ -43,6 +43,8 @@ export type OrderRecord = {
   gstAmount: string;
   grandTotal: string;
   couponCode?: string;
+  paymentProofUrl?: string;
+  transactionId?: string;
   createdAt: string;
   items: OrderItemRecord[];
 };

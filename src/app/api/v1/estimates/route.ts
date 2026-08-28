@@ -85,6 +85,8 @@ export async function POST(req: Request) {
     gstAmount: totals.gstAmount.toFixed(2),
     grandTotal: totals.grandTotal.toFixed(2),
     couponCode: couponCode || undefined,
+    paymentProofUrl: body.paymentProofUrl || undefined,
+    transactionId: body.transactionId || undefined,
     createdAt,
     items: lines,
   };

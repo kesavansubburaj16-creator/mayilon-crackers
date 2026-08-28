@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/", label: "Home" },
   { href: "/products", label: "Products" },
   { href: "/pricelist", label: "Price List" },
+  { href: "/my-orders", label: "My Orders 📦" },
   { href: "/categories", label: "Categories" },
   { href: "/dealers", label: "Wholesale" },
   { href: "/safety", label: "Safety" },
