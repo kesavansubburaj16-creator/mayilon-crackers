@@ -1775,7 +1775,11 @@ export default function AdminPage() {
               </div>
             </motion.div>
           </motion.div>
-        {/* ORDER PACKING & DISPATCH ITEMS MODAL */}
+        )}
+      </AnimatePresence>
+
+      {/* ORDER PACKING & DISPATCH ITEMS MODAL */}
+      <AnimatePresence>
         {viewPackingOrder && (
           <motion.div
             initial={{ opacity: 0 }}
