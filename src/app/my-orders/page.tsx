@@ -72,14 +72,14 @@ export default function MyOrdersPage() {
         }
         const unique = Array.from(map.values());
 
-        if (targetMob) {
+        if (targetMob && targetMob.trim().replace(/\D/g, "").length >= 10) {
           const clean = targetMob.replace(/\D/g, "").slice(-10);
           matchedOrders = unique.filter((o: any) => {
             const mobClean = String(o.mobile || "").replace(/\D/g, "").slice(-10);
             return mobClean === clean;
           });
         } else {
-          matchedOrders = unique;
+          matchedOrders = [];
         }
       } catch (err) {
         console.warn("[MyOrders] Error loading orders:", err);

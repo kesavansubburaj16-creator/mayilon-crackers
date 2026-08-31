@@ -24,11 +24,11 @@ const LINKS = [
 ];
 
 const TICKER = [
+  "Deepavali 2026 Season Bookings Live",
   "Factory Direct Pricing",
   "80% Off MRP",
   "Premium Sivakasi Quality",
   "Wholesale & Dealer Orders",
-  "Festival Offers Live",
   "Safe Packing & Fast Dispatch",
   "PESO Licensed Manufacturer",
 ];
