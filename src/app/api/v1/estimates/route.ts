@@ -157,11 +157,14 @@ export async function POST(req: Request) {
       })
       .returning();
 
+    const isValidUuid = (val: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
+
     if (estimate?.id) {
       await db.insert(estimateItems).values(
         lines.map((l: any) => ({
           estimateId: estimate.id,
-          productId: String(l.id),
+          productId: isValidUuid(l.id) ? String(l.id) : null,
           sku: l.sku,
           name: l.name,
           categoryName: l.categoryName,
