@@ -726,14 +726,24 @@ export default function CheckoutPage() {
               {totals.discount > 0 && (
                 <Row label={`Coupon (${coupon.toUpperCase()})`} value={`- ${formatINR(totals.discount)}`} accent="verde" />
               )}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-50/80 p-3 my-2">
+                <p className="text-[11.5px] font-extrabold text-amber-900 flex items-center gap-1">
+                  🚚 Transport Charge: Payable by Customer on Delivery
+                </p>
+                <p className="text-[10.5px] font-medium text-amber-800 mt-0.5">
+                  Parcel freight charges to be paid directly to transport carrier upon parcel collection at local transport hub.
+                </p>
+              </div>
+
               <Row
-                label="Transport / Delivery charge"
-                value={formatINR(totals.transportCharge)}
+                label="GST (18%)"
+                value={totals.gstAmount > 0 ? formatINR(totals.gstAmount) : "₹0 (Free < ₹50k)"}
               />
-              <p className="text-[11px] font-bold text-slate-500 italic mt-0.5 border-b border-slate-100 pb-2">
-                🚚 Delivery charges apply based on destination location & transport carrier.
-              </p>
-              <Row label="GST 18%" value={formatINR(totals.gstAmount)} />
+              {totals.subtotal < 50000 && (
+                <p className="text-[10.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                  ✓ 18% GST applies only for orders above ₹50,000. Your order has ₹0 extra GST!
+                </p>
+              )}
             </div>
 
             <div className="mt-5 flex items-end justify-between border-t border-slate-200 pt-5">

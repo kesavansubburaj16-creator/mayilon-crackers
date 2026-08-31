@@ -89,14 +89,12 @@ export function calculateTotals(
   const discount = couponValid && coupon ? round((subtotal * coupon.percent) / 100) : 0;
 
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  // Transport / Delivery charges apply based on destination location (~3.5% of net order, min ₹250, max ₹2,400)
-  const transportCharge =
-    netAfterDiscount <= 0
-      ? 0
-      : Math.min(2400, Math.max(250, round(netAfterDiscount * 0.035)));
+  // Transport charge is 0 in checkout billing since Customer pays parcel freight at delivery hub
+  const transportCharge = 0;
 
-  const gstAmount = round(netAfterDiscount * 0.18);
-  const grandTotal = round(netAfterDiscount + transportCharge + gstAmount);
+  // 18% GST is applied ONLY IF subtotal >= ₹50,000. Under ₹50,000, GST = 0 (No extra GST charges).
+  const gstAmount = subtotal >= 50000 ? round(netAfterDiscount * 0.18) : 0;
+  const grandTotal = round(netAfterDiscount + gstAmount);
 
   return {
     itemCount: safeLines.length,

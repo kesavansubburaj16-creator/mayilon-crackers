@@ -304,13 +304,16 @@ export function OrderInvoiceView({
             <Line label={`Coupon ${activeEst.couponCode ?? ""}`} value={`- ${formatINR(Number(activeEst.discount))}`} accent />
           )}
           <Line
-            label="Transport / Delivery charge"
-            value={formatINR(Number(activeEst.transportCharge))}
+            label="Transport Freight Charge"
+            value={Number(activeEst.transportCharge) > 0 ? formatINR(Number(activeEst.transportCharge)) : "Payable on Delivery"}
           />
-          <p className="text-[11px] font-bold text-slate-500 italic mt-0.5">
-            🚚 Delivery charges apply based on destination location & transport carrier.
+          <p className="text-[11px] font-bold text-amber-800 bg-amber-50 rounded-lg p-1.5 my-1">
+            🚚 Transport Freight Charge: Payable by Customer directly to parcel carrier upon arrival at destination transport hub.
           </p>
-          <Line label="GST 18%" value={formatINR(Number(activeEst.gstAmount))} />
+          <Line
+            label="GST (18%)"
+            value={Number(activeEst.gstAmount) > 0 ? formatINR(Number(activeEst.gstAmount)) : "₹0 (Applied only for Orders > ₹50,000)"}
+          />
           <div className="mt-3 flex w-full max-w-sm items-center justify-between border-t border-slate-200 pt-3">
             <span className="text-[12px] font-bold uppercase tracking-[2px] text-slate-500 print:text-black">
               Grand Total
