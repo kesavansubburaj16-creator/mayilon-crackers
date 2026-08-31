@@ -153,7 +153,7 @@ export default function PriceListPage() {
 
         {/* Notice Bar */}
         <div className="my-6 rounded-xl bg-slate-100 p-3 text-center text-xs font-bold text-slate-700 border border-slate-200">
-          💥 All prices listed below are after 80% Sivakasi Factory Discount. Minimum order for wholesale packing is ₹3,000. Free transport booking to all towns across South India!
+          💥 All prices listed below are after 80% Sivakasi Factory Discount. Minimum order for wholesale packing is ₹3,000. Licensed transport booking to all towns across South India (Parcel freight charges at Customer&apos;s Own Cost)!
         </div>
 
         {loading ? (
