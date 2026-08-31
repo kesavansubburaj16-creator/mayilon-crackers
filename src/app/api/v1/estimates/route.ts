@@ -155,6 +155,7 @@ export async function POST(req: Request) {
         grandTotal: totals.grandTotal.toFixed(2),
         status: "NEW",
       })
+      .onConflictDoNothing({ target: estimates.estimateNumber })
       .returning();
 
     const isValidUuid = (val: string) =>
