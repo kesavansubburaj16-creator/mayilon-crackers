@@ -726,12 +726,16 @@ export default function CheckoutPage() {
               {totals.discount > 0 && (
                 <Row label={`Coupon (${coupon.toUpperCase()})`} value={`- ${formatINR(totals.discount)}`} accent="verde" />
               )}
+              <Row
+                label="Transport / Freight Charge"
+                value="Customer's Own (To Pay at Delivery)"
+              />
               <div className="rounded-xl border border-amber-500/30 bg-amber-50/80 p-3 my-2">
                 <p className="text-[11.5px] font-extrabold text-amber-900 flex items-center gap-1">
-                  🚚 Transport Charge: Payable by Customer on Delivery
+                  🚚 Transport Freight: Customer's Own Cost
                 </p>
                 <p className="text-[10.5px] font-medium text-amber-800 mt-0.5">
-                  Parcel freight charges to be paid directly to transport carrier upon parcel collection at local transport hub.
+                  Actual parcel transport charges to be paid directly by customer to transport carrier upon parcel collection.
                 </p>
               </div>
 

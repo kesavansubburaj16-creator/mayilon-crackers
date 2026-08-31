@@ -305,7 +305,7 @@ export function OrderInvoiceView({
           )}
           <Line
             label="Transport Freight Charge"
-            value={Number(activeEst.transportCharge) > 0 ? formatINR(Number(activeEst.transportCharge)) : "Payable on Delivery"}
+            value="Customer's Own Cost (To Pay at Delivery Hub)"
           />
           <p className="text-[11px] font-bold text-amber-800 bg-amber-50 rounded-lg p-1.5 my-1">
             🚚 Transport Freight Charge: Payable by Customer directly to parcel carrier upon arrival at destination transport hub.
