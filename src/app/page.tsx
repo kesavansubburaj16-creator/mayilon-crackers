@@ -48,10 +48,8 @@ export default async function HomePage() {
         stats={{ products: all.total, categories: categories.length }}
       />
 
-      <Features />
-
-      {/* Instant Pricing Calculator moved right after Features */}
-      <section className="shell py-16">
+      {/* FIRST SECTION ON HOME PAGE: QUICK ESTIMATE CALCULATOR */}
+      <section id="quick-calculator" className="shell py-12 sm:py-16">
         <SectionHeading
           eyebrow="Instant Pricing"
           title={
@@ -65,6 +63,8 @@ export default async function HomePage() {
           <QuickCalculator products={all.items} />
         </Reveal>
       </section>
+
+      <Features />
 
       {/* Featured Products */}
       <section className="shell py-16">
