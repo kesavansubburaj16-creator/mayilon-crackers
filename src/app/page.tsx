@@ -43,13 +43,8 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
-      <Hero
-        images={IMAGE_POOL}
-        stats={{ products: all.total, categories: categories.length }}
-      />
-
-      {/* FIRST SECTION ON HOME PAGE: QUICK ESTIMATE CALCULATOR */}
-      <section id="quick-calculator" className="shell py-12 sm:py-16">
+      {/* 1ST SECTION ON HOME PAGE: QUICK ESTIMATE CALCULATOR */}
+      <section id="quick-calculator" className="shell pt-6 sm:pt-8 pb-12 sm:pb-16">
         <SectionHeading
           eyebrow="Instant Pricing"
           title={
@@ -63,6 +58,12 @@ export default async function HomePage() {
           <QuickCalculator products={all.items} />
         </Reveal>
       </section>
+
+      {/* 2ND SECTION ON HOME PAGE: HERO BANNER */}
+      <Hero
+        images={IMAGE_POOL}
+        stats={{ products: all.total, categories: categories.length }}
+      />
 
       <Features />
 
