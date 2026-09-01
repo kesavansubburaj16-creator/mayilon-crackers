@@ -91,10 +91,10 @@ export async function POST(req: Request) {
     items: lines,
   };
 
-  // 1. Save to Universal Store FIRST (Instant Guaranteed Availability)
+  // 1. Save to Universal Persistent Memory & File Store (Instant Guaranteed Availability)
   saveOrderToStore(newOrder);
 
-  // 2. Background DB Insert (Best Effort Sync)
+  // 2. Synchronous Fail-Safe DB Insert
   try {
     const [customerRow] = await db
       .insert(customers)
@@ -161,7 +161,7 @@ export async function POST(req: Request) {
     const isValidUuid = (val: string) =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
 
-    if (estimate?.id) {
+    if (estimate?.id && lines.length > 0) {
       await db.insert(estimateItems).values(
         lines.map((l: any) => ({
           estimateId: estimate.id,
@@ -179,7 +179,7 @@ export async function POST(req: Request) {
       );
     }
   } catch (err) {
-    console.warn("[POST /estimates] DB background sync note:", err);
+    console.error("[POST /estimates] DB Insert Note:", err);
   }
 
   return ok(

@@ -365,7 +365,12 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (authed) void load();
+    if (!authed) return;
+    void load();
+    const interval = setInterval(() => {
+      void load();
+    }, 8000);
+    return () => clearInterval(interval);
   }, [authed, load]);
 
   async function login(e: React.FormEvent) {
