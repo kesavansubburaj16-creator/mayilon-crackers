@@ -158,28 +158,43 @@ export async function POST(req: Request) {
       .onConflictDoNothing({ target: estimates.estimateNumber })
       .returning();
 
+    let targetEstimateId: string | null = estimate?.id || null;
+
+    if (!targetEstimateId) {
+      const [existing] = await db
+        .select({ id: estimates.id })
+        .from(estimates)
+        .where(eq(estimates.estimateNumber, estimateNumber))
+        .limit(1);
+      if (existing?.id) targetEstimateId = existing.id;
+    }
+
     const isValidUuid = (val: string) =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
 
-    if (estimate?.id && lines.length > 0) {
-      await db.insert(estimateItems).values(
-        lines.map((l: any) => ({
-          estimateId: estimate.id,
-          productId: isValidUuid(l.id) ? String(l.id) : null,
-          sku: l.sku,
-          name: l.name,
-          categoryName: l.categoryName,
-          packing: l.packing,
-          imageUrl: l.imageUrl || "",
-          mrp: String(l.mrp),
-          price: String(l.price),
-          quantity: l.quantity,
-          lineTotal: String(l.lineTotal),
-        })),
-      );
+    if (targetEstimateId && lines.length > 0) {
+      await db
+        .insert(estimateItems)
+        .values(
+          lines.map((l: any) => ({
+            estimateId: targetEstimateId!,
+            productId: isValidUuid(l.id) ? String(l.id) : null,
+            sku: l.sku,
+            name: l.name,
+            categoryName: l.categoryName,
+            packing: l.packing,
+            imageUrl: l.imageUrl || "",
+            mrp: String(l.mrp),
+            price: String(l.price),
+            quantity: l.quantity,
+            lineTotal: String(l.lineTotal),
+          })),
+        )
+        .onConflictDoNothing();
     }
+    console.log(`[POST /api/v1/estimates] ✓ Order ${estimateNumber} (${customer.name}, ₹${totals.grandTotal.toFixed(2)}) successfully saved to Supabase DB`);
   } catch (err) {
-    console.error("[POST /estimates] DB Insert Note:", err);
+    console.error("[POST /api/v1/estimates] DB Insert Note:", err);
   }
 
   return ok(

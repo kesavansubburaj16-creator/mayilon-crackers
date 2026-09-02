@@ -77,41 +77,51 @@ export async function POST(req: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  // 1. Save to Universal Product Store (Guaranteed Zero-Loss Persistence)
+  // 1. Save to Universal Product Store Backup
   saveProductToStore(productRecord);
 
-  // 2. Best-effort DB Sync
+  // 2. Direct Primary DB Save into Supabase PostgreSQL
   try {
-    let existingCat = await db.select({ id: categories.id }).from(categories).limit(1);
-    let validCategoryId = existingCat.length > 0 ? existingCat[0].id : null;
+    let categoryIdToUse: string | null = null;
 
-    if (!validCategoryId) {
-      const insertedCat = await db
+    if (body.categoryId) {
+      categoryIdToUse = body.categoryId;
+    } else {
+      const catSlug = slugify(productRecord.categoryName || "Special Fireworks");
+      const [catRow] = await db
         .insert(categories)
         .values({
-          name: "Special Fireworks",
+          name: productRecord.categoryName || "Special Fireworks",
           nameTa: "சிறப்பு வெடிகள்",
-          slug: "special-fireworks",
+          slug: catSlug,
           tagline: "Sivakasi Direct Quality",
           description: "Premium Sivakasi manufactured fireworks",
-          imageUrl: "/images/placeholder.jpg",
+          imageUrl: productRecord.imageUrl || "/images/placeholder.jpg",
           accent: "#D4AF37",
           icon: "Sparkles",
           sortOrder: 1,
         })
-        .onConflictDoNothing()
+        .onConflictDoUpdate({
+          target: categories.slug,
+          set: { name: productRecord.categoryName || "Special Fireworks", updatedAt: new Date() },
+        })
         .returning({ id: categories.id });
-      if (insertedCat.length > 0) validCategoryId = insertedCat[0].id;
+      if (catRow?.id) categoryIdToUse = catRow.id;
     }
 
-    if (validCategoryId) {
+    if (!categoryIdToUse) {
+      const existingCat = await db.select({ id: categories.id }).from(categories).limit(1);
+      if (existingCat.length > 0) categoryIdToUse = existingCat[0].id;
+    }
+
+    if (categoryIdToUse) {
       await db
         .insert(products)
         .values({
           sku: productRecord.sku,
           slug: productRecord.slug,
           name: productRecord.name,
-          categoryId: validCategoryId,
+          categoryId: categoryIdToUse,
           imageUrl: productRecord.imageUrl,
           packing: productRecord.packing,
           mrp: String(productRecord.mrp),
@@ -130,18 +140,20 @@ export async function POST(req: Request) {
             name: productRecord.name,
             mrp: String(productRecord.mrp),
             offerPrice: String(productRecord.offerPrice),
+            discountPercent: productRecord.discountPercent,
             packing: productRecord.packing,
             imageUrl: productRecord.imageUrl,
             stock: productRecord.stock,
             updatedAt: new Date(),
           },
         });
+      console.log(`[POST /api/v1/products] ✓ Saved ${productRecord.name} (SKU: ${productRecord.sku}, OfferPrice: ₹${productRecord.offerPrice}) directly into Supabase DB`);
     }
   } catch (err) {
-    console.warn("[POST /products] DB background sync note:", err);
+    console.error("[POST /api/v1/products] DB Write Error:", err);
   }
 
-  return ok({ product: productRecord }, "Product saved successfully", 201);
+  return ok({ product: productRecord }, "Product saved successfully to database", 201);
 }
 
 export async function DELETE(req: Request) {
