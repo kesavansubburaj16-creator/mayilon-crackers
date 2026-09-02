@@ -156,6 +156,8 @@ export const estimates = pgTable(
     gstAmount: numeric("gst_amount", { precision: 12, scale: 2 }).notNull().default("0"),
     grandTotal: numeric("grand_total", { precision: 12, scale: 2 }).notNull().default("0"),
     status: text("status").notNull().default("NEW"),
+    paymentMethod: text("payment_method").default("COD"),
+    paymentStatus: text("payment_status").default("UNPAID"),
     assignedTo: text("assigned_to"),
     adminNote: text("admin_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

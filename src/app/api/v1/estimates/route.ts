@@ -154,6 +154,8 @@ export async function POST(req: Request) {
         gstAmount: totals.gstAmount.toFixed(2),
         grandTotal: totals.grandTotal.toFixed(2),
         status: "NEW",
+        paymentMethod: paymentMethod || "COD",
+        paymentStatus: paymentMethod === "COD" ? "UNPAID" : "PENDING VERIFICATION",
       })
       .onConflictDoNothing({ target: estimates.estimateNumber })
       .returning();
