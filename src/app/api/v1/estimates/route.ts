@@ -196,7 +196,62 @@ export async function POST(req: Request) {
     }
     console.log(`[POST /api/v1/estimates] ✓ Order ${estimateNumber} (${customer.name}, ₹${totals.grandTotal.toFixed(2)}) successfully saved to Supabase DB`);
   } catch (err) {
-    console.error("[POST /api/v1/estimates] DB Insert Note:", err);
+    console.error("[POST /api/v1/estimates] Primary DB Insert Exception:", err);
+    // Fallback: Retry direct insert into estimates table without customer relation
+    try {
+      const [fallbackEst] = await db
+        .insert(estimates)
+        .values({
+          estimateNumber,
+          customerName: customer.name,
+          mobile: customer.mobile,
+          email: customer.email || null,
+          state: customer.state,
+          district: customer.district || null,
+          city: customer.city || null,
+          pincode: customer.pincode || null,
+          address: customer.address || null,
+          gstNumber: customer.gstNumber || null,
+          dealerName: customer.dealerName || null,
+          transportName: transport.transportName || null,
+          deliveryLocation: transport.deliveryLocation || null,
+          instructions: transport.instructions || null,
+          couponCode: couponCode || null,
+          itemCount: lines.length,
+          mrpTotal: totals.mrpTotal.toFixed(2),
+          subtotal: totals.subtotal.toFixed(2),
+          savings: totals.savings.toFixed(2),
+          discount: totals.discount.toFixed(2),
+          transportCharge: totals.transportCharge.toFixed(2),
+          gstAmount: totals.gstAmount.toFixed(2),
+          grandTotal: totals.grandTotal.toFixed(2),
+          status: "NEW",
+          paymentMethod: paymentMethod || "COD",
+          paymentStatus: paymentMethod === "COD" ? "UNPAID" : "PENDING VERIFICATION",
+        })
+        .onConflictDoNothing({ target: estimates.estimateNumber })
+        .returning();
+      
+      if (fallbackEst?.id && lines.length > 0) {
+        await db.insert(estimateItems).values(
+          lines.map((l: any) => ({
+            estimateId: fallbackEst.id,
+            sku: l.sku,
+            name: l.name,
+            categoryName: l.categoryName,
+            packing: l.packing,
+            imageUrl: l.imageUrl || "",
+            mrp: String(l.mrp),
+            price: String(l.price),
+            quantity: l.quantity,
+            lineTotal: String(l.lineTotal),
+          }))
+        ).onConflictDoNothing();
+      }
+      console.log(`[POST /api/v1/estimates] ✓ Fallback DB insert succeeded for ${estimateNumber}`);
+    } catch (fallbackErr) {
+      console.error("[POST /api/v1/estimates] Critical Fallback Error:", fallbackErr);
+    }
   }
 
   return ok(
