@@ -27,8 +27,8 @@ export async function POST(req: Request) {
   if (!isValid) {
     await recordAuditLog({
       action: "ADMIN_LOGIN_FAILED",
-      entityType: "system",
-      payload: { reason: "Invalid passcode attempt" },
+      entity: "system",
+      meta: { reason: "Invalid passcode attempt" },
     });
     return fail("Invalid admin passcode", [], 401);
   }
@@ -36,8 +36,8 @@ export async function POST(req: Request) {
   await setAdminSessionCookie();
   await recordAuditLog({
     action: "ADMIN_LOGIN_SUCCESS",
-    entityType: "system",
-    payload: { loginAt: new Date().toISOString() },
+    entity: "system",
+    meta: { loginAt: new Date().toISOString() },
   });
 
   return ok({ authenticated: true, role: "SUPER_ADMIN" }, "Admin session authenticated successfully");
@@ -48,7 +48,7 @@ export async function DELETE() {
   await clearAdminSessionCookie();
   await recordAuditLog({
     action: "ADMIN_LOGOUT",
-    entityType: "system",
+    entity: "system",
   });
   return ok({ authenticated: false }, "Admin logged out successfully");
 }

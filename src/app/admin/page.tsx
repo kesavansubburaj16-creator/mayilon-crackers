@@ -83,12 +83,11 @@ type Product = {
 
 type AuditLog = {
   id: string;
-  actorId: string;
-  actorRole: string;
+  actor: string;
   action: string;
-  entityType: string;
-  entityId: string;
-  payload: any;
+  entity: string;
+  entityId?: string;
+  meta?: any;
   createdAt: string;
 };
 
@@ -557,8 +556,8 @@ export default function AdminDashboardPage() {
                     <div key={log.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs flex justify-between items-center">
                       <div>
                         <span className="font-bold text-amber-400">{log.action}</span>
-                        <span className="text-slate-400 ml-2">[{log.entityType}: {log.entityId || "N/A"}]</span>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{JSON.stringify(log.payload)}</div>
+                        <span className="text-slate-400 ml-2">[{log.entity}: {log.entityId || "N/A"}]</span>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{JSON.stringify(log.meta || {})}</div>
                       </div>
                       <div className="text-[10px] text-slate-500 font-mono">
                         {new Date(log.createdAt).toLocaleString()}

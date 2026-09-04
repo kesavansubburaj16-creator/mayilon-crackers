@@ -53,23 +53,19 @@ export async function isAuthorizedAdmin(): Promise<boolean> {
 
 /** Record Administrative Audit Log in DB */
 export async function recordAuditLog(params: {
-  actorId?: string;
-  actorRole?: string;
+  actor?: string;
   action: string;
-  entityType: string;
+  entity: string;
   entityId?: string;
-  payload?: any;
-  ipAddress?: string;
+  meta?: any;
 }): Promise<void> {
   try {
     await db.insert(auditLogs).values({
-      actorId: params.actorId || "ADMIN",
-      actorRole: params.actorRole || "SUPER_ADMIN",
+      actor: params.actor || "ADMIN",
       action: params.action,
-      entityType: params.entityType,
+      entity: params.entity,
       entityId: params.entityId || null,
-      payload: params.payload || {},
-      ipAddress: params.ipAddress || "127.0.0.1",
+      meta: params.meta || {},
     });
   } catch (err) {
     console.warn("[recordAuditLog] Unable to insert audit log:", err);

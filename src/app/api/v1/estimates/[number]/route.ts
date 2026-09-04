@@ -64,13 +64,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
     dbUpdated = row;
 
     await db.insert(auditLogs).values({
-      actorId: "ADMIN",
-      actorRole: "SUPER_ADMIN",
+      actor: "ADMIN",
       action: "ORDER_STATUS_UPDATE",
-      entityType: "order",
+      entity: "order",
       entityId: number,
-      payload: patchData,
-      ipAddress: "127.0.0.1",
+      meta: patchData,
     });
   } catch (err) {
     console.warn("[PATCH /estimates/[number]] DB update note:", err);
