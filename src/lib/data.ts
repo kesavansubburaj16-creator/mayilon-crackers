@@ -7,6 +7,7 @@ import { slugify } from "./slug";
 type Seedable = typeof globalThis & { __mayilonSeed?: Promise<void> };
 
 const CATEGORY_CODE: Record<string, string> = {
+  "kids-special": "KDS",
   "single-sound": "SND",
   "bijili-crackers": "BJL",
   "ground-chakkar": "GCK",
@@ -244,11 +245,6 @@ function getInMemoryReviews() {
 
 async function seed() {
   try {
-    const [{ count }] = await db
-      .select({ count: sql<number>`cast(count(*) as int)` })
-      .from(categories);
-    if (count > 0) return;
-
     const inserted = await db
       .insert(categories)
       .values(
@@ -264,71 +260,84 @@ async function seed() {
           sortOrder: i,
         })),
       )
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: {
+          name: sql`EXCLUDED.name`,
+          nameTa: sql`EXCLUDED.name_ta`,
+          sortOrder: sql`EXCLUDED.sort_order`,
+        },
+      })
       .returning();
 
-    const bySlug = new Map(inserted.map((c) => [c.slug, c.id]));
+    const allCats = await db.select().from(categories);
+    const bySlug = new Map(allCats.map((c) => [c.slug, c.id]));
     let n = 0;
-    const productRows: (typeof products.$inferInsert)[] = [];
 
     for (const [catSlug, rows] of Object.entries(SEED_PRODUCTS)) {
       const categoryId = bySlug.get(catSlug);
       if (!categoryId) continue;
-      rows.forEach((row, idx) => {
+
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx];
         const [name, mrp, packing, pieces, flags = "", customImg] = row;
+        const prodSlug = slugify(name);
         const discount = 80;
         const offer = Math.round((mrp * 20) / 100);
         const img = customImg ?? IMAGE_POOL[n % IMAGE_POOL.length];
-        productRows.push({
-          sku: `MYL-${CATEGORY_CODE[catSlug] ?? "GEN"}-${`${idx + 1}`.padStart(2, "0")}`,
-          slug: slugify(name),
-          name,
-          categoryId,
-          shortDescription: `${name} — factory-direct Sivakasi quality with ${discount}% off MRP.`,
-          description: `${name} is manufactured at our Sivakasi unit under PESO licence with high-purity chemical composition and precision-rolled casings. Each ${packing.toLowerCase()} is quality checked for fuse integrity, moisture protection and consistent performance. Ideal for Deepavali, temple festivals, weddings, new year and corporate celebrations.`,
-          imageUrl: img,
-          gallery: [
-            img,
-            IMAGE_POOL[(n + 3) % IMAGE_POOL.length],
-            IMAGE_POOL[(n + 6) % IMAGE_POOL.length],
-            IMAGE_POOL[(n + 8) % IMAGE_POOL.length],
-          ],
-          packing,
-          piecesPerPack: pieces,
-          mrp: mrp.toFixed(2),
-          discountPercent: discount,
-          offerPrice: offer.toFixed(2),
-          dealerPrice: Math.round(offer * 0.88).toFixed(2),
-          moq: mrp > 5000 ? 1 : mrp > 1000 ? 2 : 5,
-          stock: 120 + ((n * 37) % 900),
-          isFeatured: flags.includes("F"),
-          isBestSeller: flags.includes("B"),
-          isNewArrival: flags.includes("N"),
-          isPremium: flags.includes("P"),
-          soundLevel:
-            catSlug === "single-sound" ? "High" : catSlug === "kids-special" ? "Very Low" : "Medium",
-          burnTime: `${15 + ((n * 7) % 60)} sec`,
-          effectColors: [EFFECTS[n % 6], EFFECTS[(n + 2) % 6], EFFECTS[(n + 4) % 6]],
-          rating: (4.4 + ((n % 6) * 0.1)).toFixed(2),
-          reviewCount: 18 + ((n * 13) % 240),
-          viewCount: 400 + ((n * 91) % 5000),
-        });
-        n += 1;
-      });
-    }
 
-    const createdProducts = await db
-      .insert(products)
-      .values(productRows)
-      .onConflictDoNothing()
-      .returning({ id: products.id });
+        await db
+          .insert(products)
+          .values({
+            sku: `MYL-${CATEGORY_CODE[catSlug] ?? "GEN"}-${`${idx + 1}`.padStart(2, "0")}`,
+            slug: prodSlug,
+            name,
+            categoryId,
+            shortDescription: `${name} — factory-direct Sivakasi quality with ${discount}% off MRP.`,
+            description: `${name} is manufactured at our Sivakasi unit under PESO licence with high-purity chemical composition and precision-rolled casings. Each ${packing.toLowerCase()} is quality checked for fuse integrity, moisture protection and consistent performance.`,
+            imageUrl: img,
+            gallery: [
+              img,
+              IMAGE_POOL[(n + 3) % IMAGE_POOL.length],
+              IMAGE_POOL[(n + 6) % IMAGE_POOL.length],
+            ],
+            packing,
+            piecesPerPack: pieces,
+            mrp: mrp.toFixed(2),
+            discountPercent: discount,
+            offerPrice: offer.toFixed(2),
+            dealerPrice: Math.round(offer * 0.88).toFixed(2),
+            moq: mrp > 5000 ? 1 : mrp > 1000 ? 2 : 5,
+            stock: 120 + ((n * 37) % 900),
+            isFeatured: flags.includes("F"),
+            isBestSeller: flags.includes("B"),
+            isNewArrival: flags.includes("N"),
+            isPremium: flags.includes("P"),
+            soundLevel:
+              catSlug === "single-sound" ? "High" : catSlug === "kids-special" ? "Very Low" : "Medium",
+            burnTime: `${15 + ((n * 7) % 60)} sec`,
+            effectColors: [EFFECTS[n % 6], EFFECTS[(n + 2) % 6], EFFECTS[(n + 4) % 6]],
+            rating: (4.4 + ((n % 6) * 0.1)).toFixed(2),
+            reviewCount: 18 + ((n * 13) % 240),
+            viewCount: 400 + ((n * 91) % 5000),
+          })
+          .onConflictDoUpdate({
+            target: products.slug,
+            set: {
+              categoryId,
+              name,
+            },
+          });
+        n += 1;
+      }
+    }
 
     await db
       .insert(reviews)
       .values(
-        SEED_REVIEWS.map((r, i) => ({
+        SEED_REVIEWS.map((r) => ({
           ...r,
-          productId: createdProducts[i * 4]?.id ?? createdProducts[i]?.id ?? null,
+          productId: null,
         })),
       )
       .onConflictDoNothing();

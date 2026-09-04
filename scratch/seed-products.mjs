@@ -29,9 +29,9 @@ async function main() {
       const res = await pool.query(
         `INSERT INTO categories (name, name_ta, slug, tagline, description, image_url, accent, icon, sort_order)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, name_ta = EXCLUDED.name_ta
+         ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, name_ta = EXCLUDED.name_ta, sort_order = EXCLUDED.sort_order
          RETURNING id, slug`,
-        [c.name, c.nameTa || null, c.slug, c.tagline || null, c.description || null, c.imageUrl || null, c.accent || "#D4AF37", c.icon || "Sparkles", i + 1]
+        [c.name, c.nameTa || null, c.slug, c.tagline || null, c.description || null, c.imageUrl || null, c.accent || "#D4AF37", c.icon || "Sparkles", i]
       );
       categoryMap.set(c.slug, res.rows[0].id);
     }
@@ -43,34 +43,31 @@ async function main() {
       const categoryId = categoryMap.get(catSlug);
 
       for (const p of prodList) {
-        const name = p.name;
+        const name = Array.isArray(p) ? p[0] : p.name;
         const slug = slugify(name);
-        const sku = p.sku || `MYL-${slug.slice(0, 8).toUpperCase()}`;
-        const mrp = Number(p.mrp) || 100;
-        const offerPrice = Number(p.offerPrice) || mrp;
+        const sku = (Array.isArray(p) ? p.sku : p.sku) || `MYL-${slug.slice(0, 8).toUpperCase()}`;
+        const mrp = (Array.isArray(p) ? p[1] : p.mrp) || 100;
+        const packing = (Array.isArray(p) ? p[2] : p.packing) || "1 Box";
+        const offerPrice = (Array.isArray(p) ? p[6] : p.offerPrice) || Math.round(mrp * 0.2);
         const discountPercent = Math.round(((mrp - offerPrice) / mrp) * 100);
 
         await pool.query(
-          `INSERT INTO products (sku, slug, name, name_ta, category_id, packing, mrp, discount_percent, offer_price, image_url, gallery, moq, stock, status, is_featured, is_best_seller, is_new_arrival)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'ACTIVE', $14, $15, $16)
-           ON CONFLICT (sku) DO NOTHING`,
+          `INSERT INTO products (sku, slug, name, name_ta, category_id, packing, mrp, discount_percent, offer_price, image_url, gallery, moq, stock, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'ACTIVE')
+           ON CONFLICT (slug) DO UPDATE SET category_id = EXCLUDED.category_id, name = EXCLUDED.name`,
           [
             sku,
             slug,
             name,
-            p.nameTa || null,
+            null,
             categoryId,
-            p.packing || "1 Box",
+            packing,
             mrp,
             discountPercent,
             offerPrice,
-            p.imageUrl || "/images/placeholder.jpg",
-            JSON.stringify(p.gallery || [p.imageUrl || "/images/placeholder.jpg"]),
-            p.moq || 1,
-            p.stock || 500,
-            Boolean(p.isFeatured),
-            Boolean(p.isBestSeller),
-            Boolean(p.isNewArrival),
+            "/images/placeholder.jpg",
+            JSON.stringify(["/images/placeholder.jpg"]),
+            500,
           ]
         );
         productCount++;
