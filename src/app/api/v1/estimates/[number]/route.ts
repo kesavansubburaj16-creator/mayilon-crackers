@@ -53,7 +53,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
   // 1. Update in Universal Store
   const storeUpdated = updateOrderStatusInStore(number, patchData);
 
-  // 2. Best-effort DB update
+  // 2. Best-effort DB update & audit trail logging
   let dbUpdated: any = null;
   try {
     const [row] = await db
@@ -62,6 +62,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
       .where(eq(estimates.estimateNumber, number))
       .returning();
     dbUpdated = row;
+
+    await db.insert(auditLogs).values({
+      actorId: "ADMIN",
+      actorRole: "SUPER_ADMIN",
+      action: "ORDER_STATUS_UPDATE",
+      entityType: "order",
+      entityId: number,
+      payload: patchData,
+      ipAddress: "127.0.0.1",
+    });
   } catch (err) {
     console.warn("[PATCH /estimates/[number]] DB update note:", err);
   }

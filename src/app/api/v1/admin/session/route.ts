@@ -1,52 +1,54 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { ADMIN_COOKIE, adminToken, clientKey, fail, ok, rateLimit, zodFail } from "@/lib/api";
+import { fail, ok } from "@/lib/api";
+import {
+  clearAdminSessionCookie,
+  isAuthorizedAdmin,
+  recordAuditLog,
+  setAdminSessionCookie,
+  verifyAdminPasscode,
+} from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({ passcode: z.string().min(4) });
+/** GET /api/v1/admin/session -> Verify active admin session */
+export async function GET() {
+  const isAuth = await isAuthorizedAdmin();
+  if (!isAuth) {
+    return fail("Unauthorized admin session", [], 401);
+  }
+  return ok({ authenticated: true, role: "SUPER_ADMIN" }, "Authenticated");
+}
 
+/** POST /api/v1/admin/session -> Verify passcode and set HTTP-only cookie */
 export async function POST(req: Request) {
-  const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return zodFail(parsed.error);
+  const body = await req.json().catch(() => ({}));
+  const { passcode } = body;
 
-  const inputPasscode = parsed.data.passcode.trim();
-  const validToken = adminToken();
-
-  // If correct passcode, allow login immediately without rate limit blocking!
-  if (inputPasscode === validToken || inputPasscode === "mayilon-admin") {
-    const res = NextResponse.json({
-      success: true,
-      message: "Signed in successfully",
-      data: { role: "SUPER_ADMIN" },
+  const isValid = await verifyAdminPasscode(passcode);
+  if (!isValid) {
+    await recordAuditLog({
+      action: "ADMIN_LOGIN_FAILED",
+      entityType: "system",
+      payload: { reason: "Invalid passcode attempt" },
     });
-    res.cookies.set(ADMIN_COOKIE, validToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days session
-    });
-    return res;
+    return fail("Invalid admin passcode", [], 401);
   }
 
-  // Rate limit failed attempts only
-  const limited = rateLimit(clientKey(req, "admin-login"), 15, 60_000);
-  if (!limited.allowed) {
-    return fail("Too many failed login attempts. Please wait 1 minute.", [], 429);
-  }
+  await setAdminSessionCookie();
+  await recordAuditLog({
+    action: "ADMIN_LOGIN_SUCCESS",
+    entityType: "system",
+    payload: { loginAt: new Date().toISOString() },
+  });
 
-  return fail("Invalid passcode. Please try again with 'mayilon-admin'.", [], 401);
+  return ok({ authenticated: true, role: "SUPER_ADMIN" }, "Admin session authenticated successfully");
 }
 
+/** DELETE /api/v1/admin/session -> Logout admin and clear cookie */
 export async function DELETE() {
-  const res = NextResponse.json({ success: true, message: "Signed out", data: {} });
-  res.cookies.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
-  return res;
-}
-
-export async function GET(req: Request) {
-  const cookie = req.headers.get("cookie") ?? "";
-  const authed = cookie.includes(`${ADMIN_COOKIE}=${adminToken()}`);
-  return ok({ authenticated: authed });
+  await clearAdminSessionCookie();
+  await recordAuditLog({
+    action: "ADMIN_LOGOUT",
+    entityType: "system",
+  });
+  return ok({ authenticated: false }, "Admin logged out successfully");
 }
