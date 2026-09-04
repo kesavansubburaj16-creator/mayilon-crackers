@@ -135,16 +135,22 @@ export default function AdminDashboardPage() {
       // 3. Fetch Products Catalog
       const prodRes = await fetch("/api/v1/products");
       const prodJson = await prodRes.json();
-      if (prodJson.success && Array.isArray(prodJson.data)) {
+      const rawProds = Array.isArray(prodJson.data?.items)
+        ? prodJson.data.items
+        : Array.isArray(prodJson.data)
+        ? prodJson.data
+        : [];
+
+      if (rawProds.length > 0) {
         setProducts(
-          prodJson.data.map((p: any) => ({
+          rawProds.map((p: any) => ({
             id: p.id,
             sku: p.sku,
             name: p.name,
             categoryName: p.categoryName || "Fireworks",
             packing: p.packing || "1 Box",
-            mrp: parseFloat(String(p.mrp)) || 0,
-            offerPrice: parseFloat(String(p.offerPrice)) || 0,
+            mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
+            offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
             stock: parseInt(String(p.stock || 500)),
             status: p.status || "ACTIVE",
           })),
