@@ -163,15 +163,69 @@ export default function AdminDashboardPage() {
       // 1. Fetch Orders
       const estRes = await fetch("/api/v1/estimates");
       const estJson = await estRes.json();
+      let loadedOrders: Order[] = [];
       if (estJson.success && Array.isArray(estJson.data?.items)) {
-        setOrders(estJson.data.items);
+        loadedOrders = estJson.data.items;
+        setOrders(loadedOrders);
       }
 
-      // 2. Fetch KPIs
-      const statsRes = await fetch("/api/v1/admin/stats");
-      const statsJson = await statsRes.json();
-      if (statsJson.success && statsJson.data?.kpis) {
-        setKpis(statsJson.data.kpis);
+      // Calculate live dynamic KPIs directly from loaded orders
+      const parseAmount = (val: any) => {
+        if (typeof val === "number") return val;
+        return parseFloat(String(val || 0).replace(/[^0-9.]/g, "")) || 0;
+      };
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      let totalPipelineRevenue = 0;
+      let paidOrdersCount = 0;
+      let paidOrdersRevenue = 0;
+      let todayCount = 0;
+      let todayValue = 0;
+
+      for (const item of loadedOrders) {
+        const val = parseAmount(item.grandTotal);
+        totalPipelineRevenue += val;
+
+        const pStatus = String(item.paymentStatus || "").toUpperCase();
+        const status = String(item.status || "").toUpperCase();
+
+        if (pStatus.includes("PAID") || status.includes("PAID") || status === "DELIVERED") {
+          paidOrdersCount++;
+          paidOrdersRevenue += val;
+        }
+
+        const itemDateStr = new Date(item.createdAt || Date.now()).toISOString().slice(0, 10);
+        if (itemDateStr === todayStr) {
+          todayCount++;
+          todayValue += val;
+        }
+      }
+
+      // 2. Fetch KPIs from server or use instant calculated fallback
+      try {
+        const statsRes = await fetch("/api/v1/admin/stats");
+        const statsJson = await statsRes.json();
+        if (statsJson.success && statsJson.data?.kpis && statsJson.data.kpis.estimateCount > 0) {
+          setKpis(statsJson.data.kpis);
+        } else {
+          setKpis({
+            pipeline: Math.round(totalPipelineRevenue),
+            estimateCount: loadedOrders.length,
+            paidOrdersCount,
+            paidOrdersRevenue: Math.round(paidOrdersRevenue),
+            todayCount,
+            todayValue: Math.round(todayValue),
+          });
+        }
+      } catch (err) {
+        setKpis({
+          pipeline: Math.round(totalPipelineRevenue),
+          estimateCount: loadedOrders.length,
+          paidOrdersCount,
+          paidOrdersRevenue: Math.round(paidOrdersRevenue),
+          todayCount,
+          todayValue: Math.round(todayValue),
+        });
       }
 
       // 3. Fetch Products Catalog

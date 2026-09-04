@@ -36,11 +36,19 @@ export async function GET() {
 
     const todayStr = new Date().toISOString().slice(0, 10);
 
+    const parseAmount = (val: any) => {
+      if (typeof val === "number") return val;
+      return parseFloat(String(val || 0).replace(/[^0-9.]/g, "")) || 0;
+    };
+
     for (const item of mergedList) {
-      const val = parseFloat(String(item.grandTotal || 0)) || 0;
+      const val = parseAmount(item.grandTotal);
       totalPipelineRevenue += val;
 
-      if (item.paymentStatus === "PAID" || item.status === "PAYMENT RECEIVED" || item.status === "DELIVERED") {
+      const pStatus = String(item.paymentStatus || "").toUpperCase();
+      const status = String(item.status || "").toUpperCase();
+
+      if (pStatus.includes("PAID") || status.includes("PAID") || status === "DELIVERED") {
         paidOrdersCount++;
         paidOrdersRevenue += val;
       }
