@@ -132,6 +132,31 @@ export default function AdminDashboardPage() {
   const [editingPrice, setEditingPrice] = useState("");
   const [editingMrp, setEditingMrp] = useState("");
   const [editingStock, setEditingStock] = useState("");
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  async function uploadFile(file: File, setUrl: (url: string) => void, fieldName: string) {
+    setUploadingField(fieldName);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/v1/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        setUrl(json.data.url);
+        setNotificationToast(`Uploaded file for ${fieldName} successfully!`);
+      } else {
+        alert(json.error || "File upload failed");
+      }
+    } catch (err: any) {
+      alert("File upload failed: " + (err.message || err));
+    } finally {
+      setUploadingField(null);
+      setTimeout(() => setNotificationToast(null), 3000);
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
