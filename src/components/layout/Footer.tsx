@@ -33,7 +33,6 @@ const COLS = [
       { href: "/estimate", label: "Quick Estimate" },
       { href: "/track", label: "Track Estimate" },
       { href: "/contact", label: "Contact Sales" },
-      { href: "/admin", label: "Admin Console" },
       { href: "/legal", label: "Policies" },
     ],
   },
