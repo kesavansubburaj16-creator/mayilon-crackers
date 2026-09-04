@@ -73,11 +73,16 @@ type Product = {
   id: string;
   sku: string;
   name: string;
+  nameTa?: string;
   categoryName: string;
   packing: string;
   mrp: number;
   offerPrice: number;
   stock: number;
+  imageUrl?: string;
+  imageUrl2?: string;
+  imageUrl3?: string;
+  videoUrl?: string;
   status: string;
 };
 
@@ -111,7 +116,19 @@ export default function AdminDashboardPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
   const [selectedOrderForSlip, setSelectedOrderForSlip] = useState<Order | null>(null);
+  
+  // Product Form State
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isAddingNewProduct, setIsAddingNewProduct] = useState(false);
+  const [editingSku, setEditingSku] = useState("");
+  const [editingName, setEditingName] = useState("");
+  const [editingNameTa, setEditingNameTa] = useState("");
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [editingPacking, setEditingPacking] = useState("");
+  const [editingImageUrl, setEditingImageUrl] = useState("");
+  const [editingImageUrl2, setEditingImageUrl2] = useState("");
+  const [editingImageUrl3, setEditingImageUrl3] = useState("");
+  const [editingVideoUrl, setEditingVideoUrl] = useState("");
   const [editingPrice, setEditingPrice] = useState("");
   const [editingMrp, setEditingMrp] = useState("");
   const [editingStock, setEditingStock] = useState("");
@@ -147,11 +164,16 @@ export default function AdminDashboardPage() {
             id: p.id,
             sku: p.sku,
             name: p.name,
+            nameTa: p.nameTa || "",
             categoryName: p.categoryName || "Fireworks",
             packing: p.packing || "1 Box",
             mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
             offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
             stock: parseInt(String(p.stock || 500)),
+            imageUrl: p.imageUrl || "",
+            imageUrl2: p.imageUrl2 || "",
+            imageUrl3: p.imageUrl3 || "",
+            videoUrl: p.videoUrl || "",
             status: p.status || "ACTIVE",
           })),
         );
@@ -210,18 +232,70 @@ export default function AdminDashboardPage() {
     void loadData();
   }
 
+  function openEditModal(p: Product) {
+    setEditingProduct(p);
+    setIsAddingNewProduct(false);
+    setEditingSku(p.sku);
+    setEditingName(p.name);
+    setEditingNameTa(p.nameTa || "");
+    setEditingCategoryName(p.categoryName || "Fireworks");
+    setEditingPacking(p.packing || "1 Box");
+    setEditingImageUrl(p.imageUrl || "");
+    setEditingImageUrl2(p.imageUrl2 || "");
+    setEditingImageUrl3(p.imageUrl3 || "");
+    setEditingVideoUrl(p.videoUrl || "");
+    setEditingMrp(String(p.mrp));
+    setEditingPrice(String(p.offerPrice));
+    setEditingStock(String(p.stock));
+  }
+
+  function openAddModal() {
+    const newSku = `MYL-NEW-${Math.floor(100 + Math.random() * 900)}`;
+    setEditingProduct({
+      id: `prod-${Date.now()}`,
+      sku: newSku,
+      name: "",
+      categoryName: "Special Fireworks",
+      packing: "1 Box",
+      mrp: 500,
+      offerPrice: 100,
+      stock: 500,
+      status: "ACTIVE",
+    });
+    setIsAddingNewProduct(true);
+    setEditingSku(newSku);
+    setEditingName("");
+    setEditingNameTa("");
+    setEditingCategoryName("Special Fireworks");
+    setEditingPacking("1 Box");
+    setEditingImageUrl("");
+    setEditingImageUrl2("");
+    setEditingImageUrl3("");
+    setEditingVideoUrl("");
+    setEditingMrp("500");
+    setEditingPrice("100");
+    setEditingStock("500");
+  }
+
   async function handleProductSave() {
-    if (!editingProduct) return;
-    const newPrice = parseFloat(editingPrice) || editingProduct.offerPrice;
-    const newMrp = parseFloat(editingMrp) || editingProduct.mrp;
-    const newStock = parseInt(editingStock) || editingProduct.stock;
+    if (!editingName.trim()) return;
+    const newPrice = parseFloat(editingPrice) || 100;
+    const newMrp = parseFloat(editingMrp) || newPrice;
+    const newStock = parseInt(editingStock) || 500;
 
     await fetch("/api/v1/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sku: editingProduct.sku,
-        name: editingProduct.name,
+        sku: editingSku || `MYL-PROD-${Date.now()}`,
+        name: editingName,
+        nameTa: editingNameTa,
+        categoryName: editingCategoryName || "Special Fireworks",
+        packing: editingPacking || "1 Box",
+        imageUrl: editingImageUrl,
+        imageUrl2: editingImageUrl2,
+        imageUrl3: editingImageUrl3,
+        videoUrl: editingVideoUrl,
         mrp: newMrp,
         offerPrice: newPrice,
         stock: newStock,
@@ -229,7 +303,8 @@ export default function AdminDashboardPage() {
     });
 
     setEditingProduct(null);
-    setNotificationToast(`Product ${editingProduct.sku} updated directly in Supabase DB`);
+    setIsAddingNewProduct(false);
+    setNotificationToast(`Product [${editingName}] saved directly to Supabase DB!`);
     setTimeout(() => setNotificationToast(null), 4000);
     void loadData();
   }
@@ -503,40 +578,71 @@ export default function AdminDashboardPage() {
           {activeTab === "products" && (
             <div className="space-y-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4">
-                <h2 className="text-sm font-bold text-white mb-4">Live Product Catalog & Supabase DB Price Editor</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Live Product Catalog & Supabase DB Detail Editor</h2>
+                    <p className="text-xs text-slate-400">Edit product names, Tamil names, images, video links, prices, packing & stock directly in Supabase PostgreSQL DB.</p>
+                  </div>
+                  <button
+                    onClick={openAddModal}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
+                  >
+                    <span>+ Add New Product</span>
+                  </button>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                       <tr>
+                        <th className="py-3 px-4">Image</th>
                         <th className="py-3 px-4">SKU</th>
-                        <th className="py-3 px-4">Product Name</th>
-                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4">Product Name & Tamil Name</th>
+                        <th className="py-3 px-4">Category & Packing</th>
                         <th className="py-3 px-4">MRP (₹)</th>
                         <th className="py-3 px-4">Offer Price (₹)</th>
                         <th className="py-3 px-4">Stock</th>
+                        <th className="py-3 px-4">Media</th>
                         <th className="py-3 px-4">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {products.map((p) => (
                         <tr key={p.sku} className="hover:bg-slate-800/30">
+                          <td className="py-3 px-4">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} className="w-10 h-10 object-cover rounded-lg border border-slate-800 bg-slate-950" />
+                            ) : (
+                              <div className="w-10 h-10 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center text-[10px] text-slate-600">No Img</div>
+                            )}
+                          </td>
                           <td className="py-3 px-4 font-mono text-amber-400 font-bold">{p.sku}</td>
-                          <td className="py-3 px-4 font-bold text-white">{p.name}</td>
-                          <td className="py-3 px-4 text-slate-400">{p.categoryName}</td>
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-white">{p.name}</div>
+                            {p.nameTa && <div className="text-[11px] text-amber-300">{p.nameTa}</div>}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-slate-300">{p.categoryName}</div>
+                            <div className="text-[10px] text-slate-500">{p.packing}</div>
+                          </td>
                           <td className="py-3 px-4 text-slate-400">₹{p.mrp.toFixed(2)}</td>
                           <td className="py-3 px-4 font-bold text-emerald-400">₹{p.offerPrice.toFixed(2)}</td>
-                          <td className="py-3 px-4">{p.stock} boxes</td>
+                          <td className="py-3 px-4 font-semibold">{p.stock} boxes</td>
+                          <td className="py-3 px-4">
+                            {p.videoUrl ? (
+                              <a href={p.videoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-amber-400 underline font-semibold">
+                                🎬 Video
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-600">No Video</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4">
                             <button
-                              onClick={() => {
-                                setEditingProduct(p);
-                                setEditingPrice(String(p.offerPrice));
-                                setEditingMrp(String(p.mrp));
-                                setEditingStock(String(p.stock));
-                              }}
-                              className="px-3 py-1 bg-amber-500 text-slate-950 hover:bg-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1"
+                              onClick={() => openEditModal(p)}
+                              className="px-3 py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1"
                             >
-                              <Edit className="w-3 h-3" /> Edit Price
+                              <Edit className="w-3 h-3" /> Edit Details
                             </button>
                           </td>
                         </tr>
@@ -577,48 +683,159 @@ export default function AdminDashboardPage() {
         </main>
       </div>
 
-      {/* Edit Product Modal */}
+      {/* Comprehensive Product Edit & Add Modal */}
       {editingProduct && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4">
-            <h3 className="text-base font-bold text-white">Edit Price for {editingProduct.name}</h3>
-
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">MRP (₹)</label>
-              <input
-                type="number"
-                value={editingMrp}
-                onChange={(e) => setEditingMrp(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3"
-              />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl my-8">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white">
+                {isAddingNewProduct ? "Add New Product to Supabase DB" : `Edit Details for ${editingName || editingProduct.name}`}
+              </h3>
+              <button onClick={() => setEditingProduct(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Offer Price (₹)</label>
-              <input
-                type="number"
-                value={editingPrice}
-                onChange={(e) => setEditingPrice(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Product SKU</label>
+                <input
+                  type="text"
+                  value={editingSku}
+                  onChange={(e) => setEditingSku(e.target.value)}
+                  placeholder="e.g. MYL-SND-01"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Category Name</label>
+                <input
+                  type="text"
+                  value={editingCategoryName}
+                  onChange={(e) => setEditingCategoryName(e.target.value)}
+                  placeholder="e.g. One Sound / 2 Sound Crackers"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-400 block mb-1">Product Name (English)</label>
+                <input
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  placeholder="e.g. 2 3/4&quot; Kuruvi"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-400 block mb-1">Tamil Name (தமிழ் பெயர்)</label>
+                <input
+                  type="text"
+                  value={editingNameTa}
+                  onChange={(e) => setEditingNameTa(e.target.value)}
+                  placeholder="e.g. 2 3/4&quot; குருவி"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Packing Type</label>
+                <input
+                  type="text"
+                  value={editingPacking}
+                  onChange={(e) => setEditingPacking(e.target.value)}
+                  placeholder="e.g. 1 Box (5 Pcs)"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Stock Quantity (Boxes)</label>
+                <input
+                  type="number"
+                  value={editingStock}
+                  onChange={(e) => setEditingStock(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">MRP Price (₹)</label>
+                <input
+                  type="number"
+                  value={editingMrp}
+                  onChange={(e) => setEditingMrp(e.target.value)}
+                  placeholder="e.g. 35.00"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Offer Selling Price (₹)</label>
+                <input
+                  type="number"
+                  value={editingPrice}
+                  onChange={(e) => setEditingPrice(e.target.value)}
+                  placeholder="e.g. 7.00"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-bold text-emerald-400"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-400 block mb-1">Primary Image URL</label>
+                <input
+                  type="text"
+                  value={editingImageUrl}
+                  onChange={(e) => setEditingImageUrl(e.target.value)}
+                  placeholder="https://images.pexels.com/..."
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Gallery Image 2 URL (Optional)</label>
+                <input
+                  type="text"
+                  value={editingImageUrl2}
+                  onChange={(e) => setEditingImageUrl2(e.target.value)}
+                  placeholder="https://images.pexels.com/..."
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Gallery Image 3 URL (Optional)</label>
+                <input
+                  type="text"
+                  value={editingImageUrl3}
+                  onChange={(e) => setEditingImageUrl3(e.target.value)}
+                  placeholder="https://images.pexels.com/..."
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-400 block mb-1">Video URL (YouTube or MP4 link)</label>
+                <input
+                  type="text"
+                  value={editingVideoUrl}
+                  onChange={(e) => setEditingVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=... or https://site.com/video.mp4"
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Stock Quantity</label>
-              <input
-                type="number"
-                value={editingStock}
-                onChange={(e) => setEditingStock(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3"
-              />
-            </div>
-
-            <div className="flex gap-2 justify-end pt-2">
-              <button onClick={() => setEditingProduct(null)} className="px-4 py-2 bg-slate-800 text-xs text-slate-300 rounded-xl">
+            <div className="flex gap-2 justify-end pt-4 border-t border-slate-800">
+              <button onClick={() => setEditingProduct(null)} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-xl transition-colors font-medium">
                 Cancel
               </button>
-              <button onClick={handleProductSave} className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl">
-                Save to Database
+              <button onClick={handleProductSave} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-lg shadow-amber-500/20">
+                Save Product to Database
               </button>
             </div>
           </div>
