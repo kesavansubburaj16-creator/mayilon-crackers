@@ -786,18 +786,52 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-xs text-slate-400 block mb-1">Primary Image URL</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-slate-400">Primary Image URL</label>
+                  <label className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-amber-500/20 transition-colors flex items-center gap-1">
+                    <span>{uploadingField === "Primary Image" ? "Uploading..." : "📁 Upload Image File"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadFile(file, setEditingImageUrl, "Primary Image");
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={editingImageUrl}
                   onChange={(e) => setEditingImageUrl(e.target.value)}
-                  placeholder="https://images.pexels.com/..."
+                  placeholder="https://images.pexels.com/... or data:image/..."
                   className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
                 />
+                {editingImageUrl && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={editingImageUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-slate-800 bg-slate-950" />
+                    <span className="text-[10px] text-emerald-400 font-medium">✓ Image Preview Loaded</span>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Gallery Image 2 URL (Optional)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-slate-400">Gallery Image 2 URL</label>
+                  <label className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg cursor-pointer hover:bg-amber-500/20 transition-colors">
+                    <span>{uploadingField === "Image 2" ? "Uploading..." : "📁 Upload"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadFile(file, setEditingImageUrl2, "Image 2");
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={editingImageUrl2}
@@ -808,7 +842,21 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Gallery Image 3 URL (Optional)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-slate-400">Gallery Image 3 URL</label>
+                  <label className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg cursor-pointer hover:bg-amber-500/20 transition-colors">
+                    <span>{uploadingField === "Image 3" ? "Uploading..." : "📁 Upload"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadFile(file, setEditingImageUrl3, "Image 3");
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={editingImageUrl3}
@@ -819,12 +867,26 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-xs text-slate-400 block mb-1">Video URL (YouTube or MP4 link)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-slate-400">Video URL (YouTube link or MP4 File)</label>
+                  <label className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-amber-500/20 transition-colors flex items-center gap-1">
+                    <span>{uploadingField === "Video File" ? "Uploading..." : "🎬 Upload Video File"}</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadFile(file, setEditingVideoUrl, "Video File");
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   value={editingVideoUrl}
                   onChange={(e) => setEditingVideoUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=... or https://site.com/video.mp4"
+                  placeholder="https://youtube.com/watch?v=... or data:video/mp4..."
                   className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-mono"
                 />
               </div>
