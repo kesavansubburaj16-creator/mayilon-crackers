@@ -15,6 +15,7 @@ import {
   Eye,
   FileSpreadsheet,
   Filter,
+  GripVertical,
   History,
   LayoutDashboard,
   LogOut,
@@ -135,6 +136,79 @@ export default function AdminDashboardPage() {
   const [editingMrp, setEditingMrp] = useState("");
   const [editingStock, setEditingStock] = useState("");
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  function handleDragStart(e: React.DragEvent, index: number) {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null);
+  }
+
+  async function handleDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const updated = [...products];
+    const [draggedItem] = updated.splice(draggedIndex, 1);
+    updated.splice(dropIndex, 0, draggedItem);
+
+    setProducts(updated);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    const orderIds = updated.map((p) => p.id || p.sku);
+    try {
+      await fetch("/api/v1/admin/products/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds }),
+      });
+      setNotificationToast(`✓ Moved "${draggedItem.name}" to position #${dropIndex + 1} & saved permanently!`);
+      setTimeout(() => setNotificationToast(null), 3500);
+    } catch (err) {
+      console.error("Reorder failed", err);
+    }
+  }
+
+  async function moveProduct(index: number, direction: "up" | "down") {
+    const newIdx = direction === "up" ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= products.length) return;
+    const updated = [...products];
+    const temp = updated[index];
+    updated[index] = updated[newIdx];
+    updated[newIdx] = temp;
+    setProducts(updated);
+
+    const orderIds = updated.map((p) => p.id || p.sku);
+    try {
+      await fetch("/api/v1/admin/products/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds }),
+      });
+      setNotificationToast(`✓ Product sequence updated successfully!`);
+      setTimeout(() => setNotificationToast(null), 3000);
+    } catch (e) {
+      console.error("Reorder failed", e);
+    }
+  }
 
   async function uploadFile(file: File, setUrl: (url: string) => void, fieldName: string) {
     setUploadingField(fieldName);
@@ -717,7 +791,7 @@ export default function AdminDashboardPage() {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                       <tr>
-                        <th className="py-3 px-4 text-center">Order</th>
+                        <th className="py-3 px-4 text-center">Drag / Order</th>
                         <th className="py-3 px-4">Image</th>
                         <th className="py-3 px-4">SKU</th>
                         <th className="py-3 px-4">Product Name & Tamil Name</th>
@@ -731,26 +805,50 @@ export default function AdminDashboardPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {products.map((p, idx) => (
-                        <tr key={p.sku || p.id} className="hover:bg-slate-800/30">
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <button
-                                onClick={() => void moveProduct(idx, "up")}
-                                disabled={idx === 0}
-                                className="px-1.5 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[10px] rounded font-bold disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
-                                title="Move Product Up"
+                        <tr
+                          key={p.sku || p.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragOver={(e) => handleDragOver(e, idx)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => void handleDrop(e, idx)}
+                          className={`transition-all ${
+                            draggedIndex === idx ? "opacity-30 bg-amber-500/20" : ""
+                          } ${
+                            dragOverIndex === idx
+                              ? "bg-amber-500/20 border-2 border-amber-400"
+                              : "hover:bg-slate-800/40"
+                          }`}
+                        >
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <div
+                                className="p-1 text-slate-500 hover:text-amber-400 cursor-grab active:cursor-grabbing rounded hover:bg-slate-800"
+                                title="Click and drag to reorder item"
                               >
-                                ⬆️
-                              </button>
-                              <span className="text-[10px] font-mono text-slate-500 font-semibold">{idx + 1}</span>
-                              <button
-                                onClick={() => void moveProduct(idx, "down")}
-                                disabled={idx === products.length - 1}
-                                className="px-1.5 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[10px] rounded font-bold disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
-                                title="Move Product Down"
-                              >
-                                ⬇️
-                              </button>
+                                <GripVertical className="w-4 h-4" />
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400 font-bold min-w-[20px]">
+                                #{idx + 1}
+                              </span>
+                              <div className="flex flex-col gap-0.5">
+                                <button
+                                  onClick={() => void moveProduct(idx, "up")}
+                                  disabled={idx === 0}
+                                  className="px-1 py-0.2 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[9px] rounded font-bold disabled:opacity-20 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
+                                  title="Move Up"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  onClick={() => void moveProduct(idx, "down")}
+                                  disabled={idx === products.length - 1}
+                                  className="px-1 py-0.2 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[9px] rounded font-bold disabled:opacity-20 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
+                                  title="Move Down"
+                                >
+                                  ▼
+                                </button>
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4">

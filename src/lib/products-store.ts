@@ -39,6 +39,9 @@ export type ProductRecord = {
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { db } from "@/db";
+import { settings } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const DATA_FILE = path.join(os.tmpdir(), "mayilon_custom_products.json");
 
@@ -166,6 +169,48 @@ export function saveProductReorder(orderIds: string[]) {
   try {
     fs.writeFileSync(REORDER_MAP_FILE, JSON.stringify(obj), "utf-8");
   } catch (e) {}
+
+  // Asynchronously persist to Supabase DB settings table
+  try {
+    void db
+      .insert(settings)
+      .values({
+        key: "product_reorder_map",
+        value: { orderIds },
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: {
+          value: { orderIds },
+          updatedAt: new Date(),
+        },
+      })
+      .catch((err: any) => console.warn("[saveProductReorder] DB save note:", err));
+  } catch (e) {}
+}
+
+export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
+  const map = g2.__mayilonProductOrderMap!;
+  if (map.size > 0) return map;
+
+  try {
+    const [row] = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, "product_reorder_map"))
+      .limit(1);
+    if (row?.value && typeof row.value === "object") {
+      const orderIds = (row.value as any).orderIds;
+      if (Array.isArray(orderIds)) {
+        map.clear();
+        orderIds.forEach((id, idx) => map.set(id, idx));
+      }
+    }
+  } catch (e) {
+    console.warn("[loadReorderMapFromDb] DB read note:", e);
+  }
+  return map;
 }
 
 export function getProductReorderMap(): Map<string, number> {
@@ -180,6 +225,8 @@ export function getProductReorderMap(): Map<string, number> {
         }
       }
     } catch (e) {}
+    // Trigger async load from DB in background if file was empty
+    void loadReorderMapFromDb();
   }
   return g2.__mayilonProductOrderMap || new Map<string, number>();
 }
