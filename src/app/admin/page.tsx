@@ -449,29 +449,6 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function moveProduct(index: number, direction: "up" | "down") {
-    const newIdx = direction === "up" ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= products.length) return;
-    const updated = [...products];
-    const temp = updated[index];
-    updated[index] = updated[newIdx];
-    updated[newIdx] = temp;
-    setProducts(updated);
-
-    const orderIds = updated.map((p) => p.id || p.sku);
-    try {
-      await fetch("/api/v1/admin/products/reorder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds }),
-      });
-      setNotificationToast(`Product sequence updated successfully!`);
-      setTimeout(() => setNotificationToast(null), 3000);
-    } catch (e) {
-      console.error("Reorder failed", e);
-    }
-  }
-
   async function handleProductSave() {
     if (!editingName.trim()) return;
     const newPrice = parseFloat(editingPrice) || 100;
