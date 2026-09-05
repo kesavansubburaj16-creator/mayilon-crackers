@@ -36,46 +36,28 @@ export type ProductRecord = {
   createdAt: string;
 };
 
-import fs from "fs";
-import path from "path";
-import os from "os";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { eq } from "drizzle-orm";
-
-const DATA_FILE = path.join(os.tmpdir(), "mayilon_custom_products.json");
-
-function syncFileSave(prods: ProductRecord[]) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(prods), "utf-8");
-  } catch (err) {}
-}
-
-function syncFileLoad(): ProductRecord[] {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, "utf-8");
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) return arr;
-    }
-  } catch (err) {}
-  return [];
-}
+import {
+  saveProductToEngine,
+  deleteProductFromEngine,
+  getAllCustomProductsFromEngine,
+  getDeletedProductIdsFromEngine,
+  saveProductReorderToEngine,
+  getProductReorderMapFromEngine,
+} from "./storage-engine";
 
 type GlobalWithProducts = typeof globalThis & {
   __mayilonCustomProductsStore?: Map<string, ProductRecord>;
   __mayilonClearSeedMode?: boolean;
   __mayilonDeletedProductIds?: Set<string>;
+  __mayilonProductOrderMap?: Map<string, number>;
 };
 
 const g = globalThis as GlobalWithProducts;
 if (!g.__mayilonCustomProductsStore) {
   g.__mayilonCustomProductsStore = new Map<string, ProductRecord>();
-  // Pre-fill from persistent file if available
-  const saved = syncFileLoad();
-  for (const item of saved) {
-    if (item && item.id) g.__mayilonCustomProductsStore.set(item.id, item);
-  }
 }
 if (g.__mayilonClearSeedMode === undefined) {
   g.__mayilonClearSeedMode = false;
@@ -87,20 +69,26 @@ if (!g.__mayilonDeletedProductIds) {
 const STORE = g.__mayilonCustomProductsStore;
 const DELETED_SET = g.__mayilonDeletedProductIds;
 
-/** Save custom product to memory store and disk file */
+/** Save custom product to storage engine and memory */
 export function saveProductToStore(prod: ProductRecord): ProductRecord {
   DELETED_SET.delete(prod.id);
   STORE.set(prod.id, prod);
-  syncFileSave(Array.from(STORE.values()));
+  saveProductToEngine(prod);
   return prod;
 }
 
-/** Get all custom added products */
+/** Get all custom added products from engine */
 export function getCustomProductsFromStore(): ProductRecord[] {
-  if (STORE.size === 0) {
-    const saved = syncFileLoad();
-    for (const item of saved) {
-      if (item && item.id && !DELETED_SET.has(item.id)) STORE.set(item.id, item);
+  const customList = getAllCustomProductsFromEngine();
+  const deletedEngine = getDeletedProductIdsFromEngine();
+  
+  for (const id of deletedEngine) {
+    DELETED_SET.add(id);
+  }
+
+  for (const item of customList) {
+    if (item && item.id && !DELETED_SET.has(item.id)) {
+      STORE.set(item.id, item);
     }
   }
   return Array.from(STORE.values());
@@ -109,9 +97,9 @@ export function getCustomProductsFromStore(): ProductRecord[] {
 /** Remove individual product from store */
 export function deleteProductFromStore(id: string): boolean {
   DELETED_SET.add(id);
-  const deleted = STORE.delete(id);
-  syncFileSave(Array.from(STORE.values()));
-  return deleted;
+  STORE.delete(id);
+  deleteProductFromEngine(id);
+  return true;
 }
 
 /** Check if seed products are cleared */
@@ -126,6 +114,10 @@ export function setSeedCleared(cleared: boolean): void {
 
 /** Get set of deleted product IDs */
 export function getDeletedProductIds(): Set<string> {
+  const fromEngine = getDeletedProductIdsFromEngine();
+  for (const id of fromEngine) {
+    DELETED_SET.add(id);
+  }
   return DELETED_SET;
 }
 
@@ -133,44 +125,18 @@ export function getDeletedProductIds(): Set<string> {
 export function clearAllProductsInStore(): void {
   STORE.clear();
   g.__mayilonClearSeedMode = true;
-  syncFileSave([]);
 }
 
-type GlobalWithReorder = GlobalWithProducts & {
-  __mayilonProductOrderMap?: Map<string, number>;
-};
-
-const g2 = globalThis as GlobalWithReorder;
-const REORDER_MAP_FILE = path.join(os.tmpdir(), "mayilon_product_reorder.json");
-
-if (!g2.__mayilonProductOrderMap) {
-  g2.__mayilonProductOrderMap = new Map<string, number>();
-  try {
-    if (fs.existsSync(REORDER_MAP_FILE)) {
-      const raw = fs.readFileSync(REORDER_MAP_FILE, "utf-8");
-      const obj = JSON.parse(raw);
-      if (obj && typeof obj === "object") {
-        for (const [k, v] of Object.entries(obj)) {
-          g2.__mayilonProductOrderMap.set(k, Number(v));
-        }
-      }
-    }
-  } catch (e) {}
-}
-
+/** Save product reorder mapping to storage engine */
 export function saveProductReorder(orderIds: string[]) {
-  const map = g2.__mayilonProductOrderMap!;
-  map.clear();
-  const obj: Record<string, number> = {};
-  orderIds.forEach((id, idx) => {
-    map.set(id, idx);
-    obj[id] = idx;
-  });
-  try {
-    fs.writeFileSync(REORDER_MAP_FILE, JSON.stringify(obj), "utf-8");
-  } catch (e) {}
+  saveProductReorderToEngine(orderIds);
 
-  // Asynchronously persist to Supabase DB settings table
+  const map = g.__mayilonProductOrderMap || new Map<string, number>();
+  map.clear();
+  orderIds.forEach((id, idx) => map.set(id, idx));
+  g.__mayilonProductOrderMap = map;
+
+  // Optional background sync to DB settings table if available
   try {
     void db
       .insert(settings)
@@ -186,12 +152,12 @@ export function saveProductReorder(orderIds: string[]) {
           updatedAt: new Date(),
         },
       })
-      .catch((err: any) => console.warn("[saveProductReorder] DB save note:", err));
+      .catch((err: any) => console.warn("[saveProductReorder] DB sync note:", err));
   } catch (e) {}
 }
 
 export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
-  const map = g2.__mayilonProductOrderMap!;
+  const map = getProductReorderMapFromEngine();
   if (map.size > 0) return map;
 
   try {
@@ -203,8 +169,9 @@ export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
     if (row?.value && typeof row.value === "object") {
       const orderIds = (row.value as any).orderIds;
       if (Array.isArray(orderIds)) {
-        map.clear();
-        orderIds.forEach((id, idx) => map.set(id, idx));
+        saveProductReorderToEngine(orderIds);
+        const map = getProductReorderMapFromEngine();
+        return map;
       }
     }
   } catch (e) {
@@ -214,19 +181,13 @@ export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
 }
 
 export function getProductReorderMap(): Map<string, number> {
-  if (!g2.__mayilonProductOrderMap || g2.__mayilonProductOrderMap.size === 0) {
-    try {
-      if (fs.existsSync(REORDER_MAP_FILE)) {
-        const raw = fs.readFileSync(REORDER_MAP_FILE, "utf-8");
-        const obj = JSON.parse(raw);
-        g2.__mayilonProductOrderMap = new Map<string, number>();
-        for (const [k, v] of Object.entries(obj)) {
-          g2.__mayilonProductOrderMap.set(k, Number(v));
-        }
-      }
-    } catch (e) {}
-    // Trigger async load from DB in background if file was empty
+  const engineMap = getProductReorderMapFromEngine();
+  if (engineMap.size > 0) {
+    return engineMap;
+  }
+  if (!g.__mayilonProductOrderMap) {
+    g.__mayilonProductOrderMap = new Map<string, number>();
     void loadReorderMapFromDb();
   }
-  return g2.__mayilonProductOrderMap || new Map<string, number>();
+  return g.__mayilonProductOrderMap;
 }
