@@ -125,9 +125,9 @@ function getInMemoryProducts(): ProductWithCategory[] {
  * Guarantees that Admin edited prices, offer prices, photos (imageUrl, imageUrl2, imageUrl3)
  * and videos permanently overwrite database/seed items across all queries.
  */
-function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory[] {
+async function applyCustomOverrides(items: ProductWithCategory[]): Promise<ProductWithCategory[]> {
   try {
-    const { getCustomProductsFromStore, isSeedCleared, getDeletedProductIds, getProductReorderMap } = require("./products-store");
+    const { getCustomProductsFromStore, isSeedCleared, getDeletedProductIds, loadReorderMapFromDb, getProductReorderMap } = require("./products-store");
     const customList = getCustomProductsFromStore();
     const seedCleared = isSeedCleared();
     const deletedSet = getDeletedProductIds();
@@ -238,7 +238,10 @@ function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory
     }
 
     // Apply Admin Product Sequence Reorder Map
-    const reorderMap: Map<string, number> = getProductReorderMap();
+    let reorderMap: Map<string, number> = getProductReorderMap();
+    if (!reorderMap || reorderMap.size === 0) {
+      reorderMap = await loadReorderMapFromDb();
+    }
 
     if (reorderMap && reorderMap.size > 0) {
       updatedItems.sort((a, b) => {
@@ -578,7 +581,7 @@ export async function getProducts(filters: ProductFilters = {}) {
   }
 
   // Apply Custom Admin Overwrites (Price, MRP, Photos & Videos)
-  const merged = applyCustomOverrides(baseItems);
+  const merged = await applyCustomOverrides(baseItems);
   const total = merged.length;
   const offset = filters.offset ?? 0;
   const limit = filters.limit ?? 250;

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     return fail("Product items or order IDs list required", [], 400);
   }
 
-  saveProductReorder(items);
+  await saveProductReorder(items);
 
   const { items: sortedProducts } = await getProducts({ limit: 250 });
 

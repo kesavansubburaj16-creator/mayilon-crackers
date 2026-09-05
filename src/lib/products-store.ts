@@ -127,21 +127,20 @@ export function clearAllProductsInStore(): void {
   g.__mayilonClearSeedMode = true;
 }
 
-/** Save product reorder mapping to storage engine */
-export function saveProductReorder(itemsOrIds: any[]) {
+/** Save product reorder mapping to storage engine and await DB persistence */
+export async function saveProductReorder(itemsOrIds: any[]): Promise<void> {
   saveProductReorderToEngine(itemsOrIds);
 
   const engineMap = getProductReorderMapFromEngine();
   g.__mayilonProductOrderMap = engineMap;
 
-  // Optional background sync to DB settings table if available
   try {
     const orderIds = Array.isArray(itemsOrIds)
       ? itemsOrIds.map((it) => (typeof it === "string" ? it : it?.id || it?.sku)).filter(Boolean)
       : [];
     const mapObj = Object.fromEntries(engineMap.entries());
 
-    void db
+    await db
       .insert(settings)
       .values({
         key: "product_reorder_map",
@@ -154,9 +153,10 @@ export function saveProductReorder(itemsOrIds: any[]) {
           value: { orderIds, mapObj },
           updatedAt: new Date(),
         },
-      })
-      .catch((err: any) => console.warn("[saveProductReorder] DB sync note:", err));
-  } catch (e) {}
+      });
+  } catch (e) {
+    console.warn("[saveProductReorder] DB sync note:", e);
+  }
 }
 
 export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
@@ -177,7 +177,9 @@ export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
       } else if (Array.isArray(val.orderIds)) {
         saveProductReorderToEngine(val.orderIds);
       }
-      return getProductReorderMapFromEngine();
+      const reloadedMap = getProductReorderMapFromEngine();
+      g.__mayilonProductOrderMap = reloadedMap;
+      return reloadedMap;
     }
   } catch (e) {
     console.warn("[loadReorderMapFromDb] DB read note:", e);

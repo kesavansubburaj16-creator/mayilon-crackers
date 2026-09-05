@@ -181,6 +181,12 @@ export default function AdminDashboardPage() {
     const orderIds = updated.map((p) => p.id || p.sku);
 
     try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mayilon_local_reorder_cache", JSON.stringify(orderIds));
+      }
+    } catch (err) {}
+
+    try {
       const res = await fetch("/api/v1/admin/products/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,6 +234,12 @@ export default function AdminDashboardPage() {
       name: p.name,
     }));
     const orderIds = updated.map((p) => p.id || p.sku);
+
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mayilon_local_reorder_cache", JSON.stringify(orderIds));
+      }
+    } catch (err) {}
 
     try {
       const res = await fetch("/api/v1/admin/products/reorder", {
@@ -356,8 +368,11 @@ export default function AdminDashboardPage() {
         });
       }
 
-      // 3. Fetch Products Catalog
-      const prodRes = await fetch("/api/v1/products");
+      // 3. Fetch Products Catalog with Cache-Busting
+      const prodRes = await fetch(`/api/v1/products?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const prodJson = await prodRes.json();
       const rawProds = Array.isArray(prodJson.data?.items)
         ? prodJson.data.items
@@ -366,24 +381,41 @@ export default function AdminDashboardPage() {
         : [];
 
       if (rawProds.length > 0) {
-        setProducts(
-          rawProds.map((p: any) => ({
-            id: p.id,
-            sku: p.sku,
-            name: p.name,
-            nameTa: p.nameTa || "",
-            categoryName: p.categoryName || "Fireworks",
-            packing: p.packing || "1 Box",
-            mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
-            offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
-            stock: parseInt(String(p.stock || 500)),
-            imageUrl: p.imageUrl || "",
-            imageUrl2: p.imageUrl2 || "",
-            imageUrl3: p.imageUrl3 || "",
-            videoUrl: p.videoUrl || "",
-            status: p.status || "ACTIVE",
-          })),
-        );
+        let mapped = rawProds.map((p: any) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          nameTa: p.nameTa || "",
+          categoryName: p.categoryName || "Fireworks",
+          packing: p.packing || "1 Box",
+          mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
+          offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
+          stock: parseInt(String(p.stock || 500)),
+          imageUrl: p.imageUrl || "",
+          imageUrl2: p.imageUrl2 || "",
+          imageUrl3: p.imageUrl3 || "",
+          videoUrl: p.videoUrl || "",
+          status: p.status || "ACTIVE",
+        }));
+
+        try {
+          if (typeof window !== "undefined") {
+            const cachedOrderRaw = localStorage.getItem("mayilon_local_reorder_cache");
+            if (cachedOrderRaw) {
+              const cachedOrder: string[] = JSON.parse(cachedOrderRaw);
+              if (Array.isArray(cachedOrder) && cachedOrder.length > 0) {
+                const orderMap = new Map(cachedOrder.map((id, idx) => [id, idx]));
+                mapped.sort((a: any, b: any) => {
+                  const posA = orderMap.get(a.id) ?? orderMap.get(a.sku) ?? orderMap.get(a.name) ?? 999999;
+                  const posB = orderMap.get(b.id) ?? orderMap.get(b.sku) ?? orderMap.get(b.name) ?? 999999;
+                  return posA - posB;
+                });
+              }
+            }
+          }
+        } catch (e) {}
+
+        setProducts(mapped);
       }
 
       // 4. Fetch Audit Logs if in Audit Tab
