@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Download, FileText, ArrowLeft, Printer, MessageCircle, Phone, Sparkles } from "lucide-react";
+import { Download, FileText, ArrowLeft, Printer, MessageCircle, Phone, Sparkles, Trash2, Plus } from "lucide-react";
 import { formatINR } from "@/lib/estimate";
 import { SITE, waLink } from "@/lib/slug";
 
@@ -10,6 +10,18 @@ export default function PriceListPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayDate, setTodayDate] = useState("");
+
+  async function deleteProduct(item: any) {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    setProducts((prev) => prev.filter((p) => p.id !== item.id && p.sku !== item.sku));
+    try {
+      await fetch(`/api/v1/products?id=${encodeURIComponent(item.id || "")}&sku=${encodeURIComponent(item.sku || "")}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.warn("Delete API error:", err);
+    }
+  }
 
   useEffect(() => {
     setTodayDate(new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }));
@@ -160,49 +172,74 @@ export default function PriceListPage() {
           <div className="py-20 text-center font-bold text-slate-500">Loading Price List Data...</div>
         ) : (
           <div className="space-y-8">
-            {Object.entries(categoriesMap).map(([category, items], catIdx) => (
-              <div key={category} className="break-inside-avoid">
-                <div className="flex items-center gap-2 border-b border-red-600/30 pb-2 mb-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-[11px] font-extrabold text-white">
-                    {catIdx + 1}
-                  </span>
-                  <h2 className="font-display text-lg font-bold uppercase tracking-wider text-slate-900">
-                    {category}
-                  </h2>
-                  <span className="ml-auto text-xs font-bold text-slate-500">({items.length} Items)</span>
-                </div>
+            {(() => {
+              let globalSerialNo = 0;
+              return Object.entries(categoriesMap).map(([category, items], catIdx) => (
+                <div key={category} className="break-inside-avoid">
+                  <div className="flex items-center gap-2 border-b border-red-600/30 pb-2 mb-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-[11px] font-extrabold text-white">
+                      {catIdx + 1}
+                    </span>
+                    <h2 className="font-display text-lg font-bold uppercase tracking-wider text-slate-900">
+                      {category}
+                    </h2>
+                    <div className="ml-auto flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500">({items.length} Items)</span>
+                      <Link
+                        href={`/admin`}
+                        className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300/80 px-2.5 py-1 rounded-lg hover:bg-amber-100 transition print:hidden flex items-center gap-1 shadow-sm"
+                      >
+                        <Plus size={11} /> Add Item to {category}
+                      </Link>
+                    </div>
+                  </div>
 
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-300 bg-slate-100 text-[11px] font-bold uppercase text-slate-700">
-                      <th className="py-2.5 px-3 w-12 text-center">S.No</th>
-                      <th className="py-2.5 px-3">Product Name</th>
-                      <th className="py-2.5 px-3 w-28">Packing</th>
-                      <th className="py-2.5 px-3 w-24 text-right">MRP (₹)</th>
-                      <th className="py-2.5 px-3 w-28 text-right text-red-600">Offer Price (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {items.map((item, idx) => (
-                      <tr key={item.id || idx} className="hover:bg-slate-50 print:hover:bg-transparent">
-                        <td className="py-2 px-3 text-center text-slate-500 font-medium">{idx + 1}</td>
-                        <td className="py-2 px-3 font-bold text-slate-900">
-                          {item.name}
-                          <span className="ml-2 text-[10px] font-normal text-slate-500">({item.sku})</span>
-                        </td>
-                        <td className="py-2 px-3 text-slate-600 font-medium">{item.packing}</td>
-                        <td className="py-2 px-3 text-right text-slate-400 line-through font-medium">
-                          {formatINR(Number(item.mrp))}
-                        </td>
-                        <td className="py-2 px-3 text-right font-extrabold text-red-600 text-sm">
-                          {formatINR(Number(item.offerPrice))}
-                        </td>
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-300 bg-slate-100 text-[11px] font-bold uppercase text-slate-700">
+                        <th className="py-2.5 px-3 w-12 text-center">S.No</th>
+                        <th className="py-2.5 px-3">Product Name</th>
+                        <th className="py-2.5 px-3 w-28">Packing</th>
+                        <th className="py-2.5 px-3 w-24 text-right">MRP (₹)</th>
+                        <th className="py-2.5 px-3 w-28 text-right text-red-600">Offer Price (₹)</th>
+                        <th className="py-2.5 px-3 w-16 text-center print:hidden">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {items.map((item, idx) => {
+                        globalSerialNo++;
+                        const currentNo = globalSerialNo;
+                        return (
+                          <tr key={item.id || item.sku || idx} className="hover:bg-slate-50 print:hover:bg-transparent">
+                            <td className="py-2 px-3 text-center text-slate-500 font-medium">{currentNo}</td>
+                            <td className="py-2 px-3 font-bold text-slate-900">
+                              {item.name}
+                              <span className="ml-2 text-[10px] font-normal text-slate-500">({item.sku})</span>
+                            </td>
+                            <td className="py-2 px-3 text-slate-600 font-medium">{item.packing}</td>
+                            <td className="py-2 px-3 text-right text-slate-400 line-through font-medium">
+                              {formatINR(Number(item.mrp))}
+                            </td>
+                            <td className="py-2 px-3 text-right font-extrabold text-red-600 text-sm">
+                              {formatINR(Number(item.offerPrice))}
+                            </td>
+                            <td className="py-2 px-3 text-center print:hidden">
+                              <button
+                                onClick={() => void deleteProduct(item)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title={`Delete ${item.name}`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ));
+            })()}
           </div>
         )}
 

@@ -21,11 +21,13 @@ import {
   Package,
   PackageCheck,
   PackageX,
+  Plus,
   Printer,
   RefreshCw,
   Search,
   ShieldCheck,
   ShoppingBag,
+  Trash2,
   Truck,
   Users,
   X,
@@ -328,13 +330,15 @@ export default function AdminDashboardPage() {
     setEditingStock(String(p.stock));
   }
 
-  function openAddModal() {
-    const newSku = `MYL-NEW-${Math.floor(100 + Math.random() * 900)}`;
+  function openAddModal(presetCategoryName?: string) {
+    const targetCat = presetCategoryName || "Ground Chakkars";
+    const prefix = targetCat.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, "CAT");
+    const newSku = `MYL-${prefix}-${Math.floor(100 + Math.random() * 900)}`;
     setEditingProduct({
       id: `prod-${Date.now()}`,
       sku: newSku,
       name: "",
-      categoryName: "Special Fireworks",
+      categoryName: targetCat,
       packing: "1 Box",
       mrp: 500,
       offerPrice: 100,
@@ -345,7 +349,7 @@ export default function AdminDashboardPage() {
     setEditingSku(newSku);
     setEditingName("");
     setEditingNameTa("");
-    setEditingCategoryName("Special Fireworks");
+    setEditingCategoryName(targetCat);
     setEditingPacking("1 Box");
     setEditingImageUrl("");
     setEditingImageUrl2("");
@@ -354,6 +358,21 @@ export default function AdminDashboardPage() {
     setEditingMrp("500");
     setEditingPrice("100");
     setEditingStock("500");
+  }
+
+  async function deleteProduct(p: Product) {
+    if (!confirm(`Are you sure you want to delete product "${p.name}" (${p.sku})?`)) return;
+    setProducts((prev) => prev.filter((item) => item.id !== p.id && item.sku !== p.sku));
+    try {
+      await fetch(`/api/v1/products?id=${encodeURIComponent(p.id)}&sku=${encodeURIComponent(p.sku)}`, {
+        method: "DELETE",
+      });
+      setNotificationToast(`Product [${p.name}] deleted successfully!`);
+      setTimeout(() => setNotificationToast(null), 3000);
+      void loadData();
+    } catch (err) {
+      alert("Failed to delete product");
+    }
   }
 
   async function handleProductSave() {
@@ -663,9 +682,10 @@ export default function AdminDashboardPage() {
                     <p className="text-xs text-slate-400">Edit product names, Tamil names, images, video links, prices, packing & stock directly in Supabase PostgreSQL DB.</p>
                   </div>
                   <button
-                    onClick={openAddModal}
+                    onClick={() => openAddModal("Ground Chakkars")}
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
                   >
+                    <Plus className="w-4 h-4" />
                     <span>+ Add New Product</span>
                   </button>
                 </div>
@@ -682,12 +702,12 @@ export default function AdminDashboardPage() {
                         <th className="py-3 px-4">Offer Price (₹)</th>
                         <th className="py-3 px-4">Stock</th>
                         <th className="py-3 px-4">Media</th>
-                        <th className="py-3 px-4">Action</th>
+                        <th className="py-3 px-4 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {products.map((p) => (
-                        <tr key={p.sku} className="hover:bg-slate-800/30">
+                        <tr key={p.sku || p.id} className="hover:bg-slate-800/30">
                           <td className="py-3 px-4">
                             {p.imageUrl ? (
                               <img src={p.imageUrl} alt={p.name} className="w-10 h-10 object-cover rounded-lg border border-slate-800 bg-slate-950" />
@@ -701,7 +721,16 @@ export default function AdminDashboardPage() {
                             {p.nameTa && <div className="text-[11px] text-amber-300">{p.nameTa}</div>}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="text-slate-300">{p.categoryName}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-200 font-semibold">{p.categoryName}</span>
+                              <button
+                                onClick={() => openAddModal(p.categoryName)}
+                                className="text-[9px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20"
+                                title={`Add new item directly into ${p.categoryName}`}
+                              >
+                                + Add to Category
+                              </button>
+                            </div>
                             <div className="text-[10px] text-slate-500">{p.packing}</div>
                           </td>
                           <td className="py-3 px-4 text-slate-400">₹{p.mrp.toFixed(2)}</td>
@@ -717,12 +746,21 @@ export default function AdminDashboardPage() {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <button
-                              onClick={() => openEditModal(p)}
-                              className="px-3 py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1"
-                            >
-                              <Edit className="w-3 h-3" /> Edit Details
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => openEditModal(p)}
+                                className="px-3 py-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1"
+                              >
+                                <Edit className="w-3 h-3" /> Edit
+                              </button>
+                              <button
+                                onClick={() => void deleteProduct(p)}
+                                className="px-3 py-1.5 bg-red-600/90 hover:bg-red-500 text-white text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+                                title="Delete product permanently"
+                              >
+                                <Trash2 className="w-3 h-3" /> Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -788,14 +826,34 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Category Name</label>
-                <input
-                  type="text"
+                <label className="text-xs text-slate-400 block mb-1">Target Category Section</label>
+                <select
                   value={editingCategoryName}
                   onChange={(e) => setEditingCategoryName(e.target.value)}
-                  placeholder="e.g. One Sound / 2 Sound Crackers"
-                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500"
-                />
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-xl p-3 focus:border-amber-500 font-bold"
+                >
+                  {[
+                    "Short Items",
+                    "Bijili Crackers",
+                    "Ground Chakkars",
+                    "Twinkling Stars",
+                    "Flower Pots",
+                    "Pencils",
+                    "Rockets",
+                    "Bombs",
+                    "Kids Special",
+                    "Fountains",
+                    "Aerial Shots",
+                    "Multi Shots",
+                    "Sparklers",
+                    "Colour Matches & Novelties",
+                    "Gift Boxes",
+                  ].map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="sm:col-span-2">

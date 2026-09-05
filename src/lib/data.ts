@@ -212,7 +212,28 @@ function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory
         const idx = updatedItems.findIndex((it) => it.id === match.id || it.sku === match.sku);
         if (idx !== -1) updatedItems[idx] = override;
       } else {
-        updatedItems.unshift(override);
+        const catNameLower = (override.categoryName || "").toLowerCase().trim();
+        const catSlugLower = (override.categorySlug || "").toLowerCase().trim();
+        let insertIdx = -1;
+
+        for (let i = updatedItems.length - 1; i >= 0; i--) {
+          const itemCatName = (updatedItems[i].categoryName || "").toLowerCase().trim();
+          const itemCatSlug = (updatedItems[i].categorySlug || "").toLowerCase().trim();
+          if (
+            itemCatName === catNameLower ||
+            itemCatSlug === catSlugLower ||
+            (catNameLower && itemCatName.includes(catNameLower))
+          ) {
+            insertIdx = i + 1;
+            break;
+          }
+        }
+
+        if (insertIdx !== -1) {
+          updatedItems.splice(insertIdx, 0, override);
+        } else {
+          updatedItems.push(override);
+        }
       }
     }
 

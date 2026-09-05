@@ -157,22 +157,42 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const sp = new URL(req.url).searchParams;
-  const action = sp.get("action");
-  const id = sp.get("id");
+  const url = new URL(req.url);
+  const sp = url.searchParams;
+  let id = sp.get("id");
+  let sku = sp.get("sku");
+  let action = sp.get("action");
+
+  if (!id && !sku && req.headers.get("content-type")?.includes("application/json")) {
+    const body = await req.json().catch(() => ({}));
+    id = body.id || id;
+    sku = body.sku || sku;
+    action = body.action || action;
+  }
 
   if (action === "clear-all") {
     clearAllProductsInStore();
     return ok({}, "All catalogue products cleared successfully");
   }
 
-  if (!id) return fail("Product ID required", [], 400);
+  const target = id || sku;
+  if (!target) return fail("Product ID or SKU required for deletion", [], 400);
 
-  deleteProductFromStore(id);
+  if (id) deleteProductFromStore(id);
+  if (sku) deleteProductFromStore(sku);
 
   try {
-    // Delete from DB if present
-  } catch (err) {}
+    const { eq, or } = require("drizzle-orm");
+    const clauses = [];
+    if (id) clauses.push(eq(products.id, id));
+    if (sku) clauses.push(eq(products.sku, sku));
 
-  return ok({ id }, "Product deleted successfully");
+    if (clauses.length > 0) {
+      await db.update(products).set({ deletedAt: new Date(), status: "INACTIVE" }).where(or(...clauses));
+    }
+  } catch (err) {
+    console.warn("[DELETE /api/v1/products] DB soft delete error:", err);
+  }
+
+  return ok({ id: target }, "Product deleted successfully");
 }

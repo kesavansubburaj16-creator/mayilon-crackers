@@ -24,26 +24,6 @@ export type SeedCategory = {
 
 export const SEED_CATEGORIES: SeedCategory[] = [
   {
-    name: "Kids Special",
-    nameTa: "கிட்ஸ் ஸ்பெஷல்",
-    slug: "kids-special",
-    tagline: "Drone, Guns, Simba, Unicorn & Low-Sound Novelty Fireworks for Kids",
-    description: "Vibrant low-sound fountains, guns, drones and colorful novelty fireworks specially curated for children and safe family fun.",
-    accent: "#FFD700",
-    icon: "sparkles",
-    imageUrl: "/categories/kids-special.jpg",
-  },
-  {
-    name: "Fountains",
-    nameTa: "ஃபவுண்டன் வகைகள்",
-    slug: "fountains",
-    tagline: "Tom & Jerry, Peacock, Water Queen & Novelty Fountains",
-    description: "Vibrant shower cones, multi-step fountains and tri-color pyro fountain displays.",
-    accent: "#FF8C00",
-    icon: "flame",
-    imageUrl: "/categories/fountains.jpg",
-  },
-  {
     name: "Short Items",
     nameTa: "சிறிய ரக வெடிகள்",
     slug: "single-sound",
@@ -122,6 +102,26 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     accent: "#FF3131",
     icon: "bomb",
     imageUrl: "/categories/bombs.jpg",
+  },
+  {
+    name: "Kids Special",
+    nameTa: "கிட்ஸ் ஸ்பெஷல்",
+    slug: "kids-special",
+    tagline: "Drone, Guns, Simba, Unicorn & Low-Sound Novelty Fireworks for Kids",
+    description: "Vibrant low-sound fountains, guns, drones and colorful novelty fireworks specially curated for children and safe family fun.",
+    accent: "#FFD700",
+    icon: "sparkles",
+    imageUrl: "/categories/kids-special.jpg",
+  },
+  {
+    name: "Fountains",
+    nameTa: "ஃபவுண்டன் வகைகள்",
+    slug: "fountains",
+    tagline: "Tom & Jerry, Peacock, Water Queen & Novelty Fountains",
+    description: "Vibrant shower cones, multi-step fountains and tri-color pyro fountain displays.",
+    accent: "#FF8C00",
+    icon: "flame",
+    imageUrl: "/categories/fountains.jpg",
   },
   {
     name: "Aerial Shots",
