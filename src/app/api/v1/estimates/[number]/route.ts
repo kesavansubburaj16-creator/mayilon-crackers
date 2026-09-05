@@ -33,7 +33,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ number: string
     if (cached) {
       estimate = cached;
       items = cached.items;
-      void persistOrderToDb(cached);
+      await persistOrderToDb(cached);
     }
   }
 
@@ -54,10 +54,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
   // 1. Update in Universal Store
   const storeUpdated = updateOrderStatusInStore(number, patchData);
   if (storeUpdated) {
-    void persistOrderToDb(storeUpdated);
+    await persistOrderToDb(storeUpdated);
   }
 
-  // 2. Best-effort DB update & audit trail logging
+  // 2. Synchronous DB update & audit trail logging
   let dbUpdated: any = null;
   try {
     const [row] = await db
@@ -78,5 +78,6 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
     console.warn("[PATCH /estimates/[number]] DB update note:", err);
   }
 
-  return ok({ estimate: storeUpdated || dbUpdated }, "Order updated successfully");
+  const finalOrder = storeUpdated || dbUpdated;
+  return ok({ estimate: finalOrder }, "Order status updated successfully");
 }

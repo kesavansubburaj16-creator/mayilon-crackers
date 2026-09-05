@@ -381,10 +381,10 @@ export default function AdminDashboardPage() {
       body: JSON.stringify(body),
     });
 
-    const msg = `Updated Order ${estimateNumber} to status [${status}]`;
+    const msg = `✓ Updated Order ${estimateNumber} to status [${status}]`;
     setNotificationToast(msg);
     setTimeout(() => setNotificationToast(null), 4000);
-    void loadData();
+    await loadData();
   }
 
   function openEditModal(p: Product) {

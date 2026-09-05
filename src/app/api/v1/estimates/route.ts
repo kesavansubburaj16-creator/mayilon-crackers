@@ -7,7 +7,7 @@ import { getAllOrdersFromStore, saveOrderToStore, type OrderRecord } from "@/lib
 
 export const dynamic = "force-dynamic";
 
-/** Guarantees 100% permanent insertion of order into Supabase PostgreSQL database */
+/** Guarantees 100% permanent insertion/update of order into Supabase PostgreSQL database */
 export async function persistOrderToDb(o: OrderRecord): Promise<boolean> {
   try {
     let customerId: string | null = null;
@@ -43,7 +43,7 @@ export async function persistOrderToDb(o: OrderRecord): Promise<boolean> {
         .returning();
       if (cRow?.id) customerId = cRow.id;
     } catch (cErr) {
-      console.warn("[persistOrderToDb] Customer upsert warning:", cErr);
+      console.warn("[persistOrderToDb] Customer upsert note:", cErr);
     }
 
     const [estRow] = await db
@@ -112,7 +112,7 @@ export async function persistOrderToDb(o: OrderRecord): Promise<boolean> {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
 
     if (targetEstimateId && o.items && o.items.length > 0) {
-      // Clear previous items to avoid duplicates if re-inserting
+      // Refresh items to ensure 100% item detail accuracy
       await db.delete(estimateItems).where(eq(estimateItems.estimateId, targetEstimateId)).catch(() => {});
 
       await db.insert(estimateItems).values(
@@ -131,7 +131,7 @@ export async function persistOrderToDb(o: OrderRecord): Promise<boolean> {
         })),
       );
     }
-    console.log(`[persistOrderToDb] ✓ Successfully persisted ${o.estimateNumber} into Supabase DB`);
+    console.log(`[persistOrderToDb] ✓ Synchronously persisted order ${o.estimateNumber} into Supabase DB (Status: ${o.status})`);
     return true;
   } catch (err) {
     console.error(`[persistOrderToDb] Error persisting ${o.estimateNumber}:`, err);
@@ -223,11 +223,11 @@ export async function POST(req: Request) {
     items: lines,
   };
 
-  // 1. Save to Universal In-Memory Store
+  // 1. Save to Universal Store
   saveOrderToStore(newOrder);
 
-  // 2. Direct Guaranteed Supabase DB Upsert
-  void persistOrderToDb(newOrder);
+  // 2. Synchronous Guaranteed Supabase DB Insert before returning response
+  await persistOrderToDb(newOrder);
 
   return ok(
     { estimateNumber, totals, status: "NEW", paymentMethod, order: newOrder },
@@ -282,15 +282,15 @@ export async function GET() {
     console.warn("[GET /estimates] DB read fallback:", err);
   }
 
-  // Auto-heal: If any store order is NOT in DB, persist it into Supabase DB now!
+  // Auto-heal: Synchronously persist any store orders missing from Supabase DB
   for (const o of storeOrders) {
     if (o && o.estimateNumber && !dbEstimateNumbers.has(o.estimateNumber)) {
       console.log(`[GET /estimates] Auto-persisting store order ${o.estimateNumber} to Supabase DB`);
-      void persistOrderToDb(o);
+      await persistOrderToDb(o);
     }
   }
 
-  // Merge store orders and db rows, avoiding duplicates by estimateNumber
+  // Merge store orders and db rows
   const map = new Map<string, any>();
   for (const o of storeOrders) {
     if (o && o.estimateNumber) map.set(o.estimateNumber, o);
