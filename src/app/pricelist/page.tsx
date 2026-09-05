@@ -27,7 +27,7 @@ export default function PriceListPage() {
     setTodayDate(new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }));
     async function load() {
       try {
-        const res = await fetch("/api/v1/products?limit=300&sort=alpha");
+        const res = await fetch(`/api/v1/products?limit=300&t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
         const json = await res.json();
         let list = json?.data?.items || [];
         

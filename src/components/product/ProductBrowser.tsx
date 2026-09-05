@@ -35,7 +35,7 @@ export function ProductBrowser({
     // Fetch live items directly from API to ensure multi-device sync (PC <-> Mobile)
     async function syncLiveProducts() {
       try {
-        const res = await fetch("/api/v1/products?limit=350&sort=alpha");
+        const res = await fetch(`/api/v1/products?limit=350&t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
         const json = await res.json();
         let apiItems = json?.data?.items || [];
 

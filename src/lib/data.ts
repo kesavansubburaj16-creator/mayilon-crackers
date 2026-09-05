@@ -237,7 +237,7 @@ function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory
       }
     }
 
-    // Apply Admin Product Sequence Reorder Map
+    // Apply Admin Product Sequence Reorder Map (Primary Catalogue Sequence)
     const reorderMap: Map<string, number> = getProductReorderMap();
     if (!reorderMap || reorderMap.size === 0) {
       void loadReorderMapFromDb();
