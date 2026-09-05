@@ -117,7 +117,7 @@ function getInMemoryProducts(): ProductWithCategory[] {
     });
   }
 
-  return applyCustomOverrides(list);
+  return list;
 }
 
 /**
@@ -125,7 +125,7 @@ function getInMemoryProducts(): ProductWithCategory[] {
  * Guarantees that Admin edited prices, offer prices, photos (imageUrl, imageUrl2, imageUrl3)
  * and videos permanently overwrite database/seed items across all queries.
  */
-function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory[] {
+async function applyCustomOverrides(items: ProductWithCategory[]): Promise<ProductWithCategory[]> {
   try {
     const { getCustomProductsFromStore, isSeedCleared, getDeletedProductIds, loadReorderMapFromDb, getProductReorderMap } = require("./products-store");
     const customList = getCustomProductsFromStore();
@@ -238,9 +238,9 @@ function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory
     }
 
     // Apply Admin Product Sequence Reorder Map (Primary Catalogue Sequence)
-    const reorderMap: Map<string, number> = getProductReorderMap();
+    let reorderMap: Map<string, number> = getProductReorderMap();
     if (!reorderMap || reorderMap.size === 0) {
-      void loadReorderMapFromDb();
+      reorderMap = await loadReorderMapFromDb();
     }
 
     if (reorderMap && reorderMap.size > 0) {
@@ -581,7 +581,7 @@ export async function getProducts(filters: ProductFilters = {}) {
   }
 
   // Apply Custom Admin Overwrites (Price, MRP, Photos & Videos)
-  const merged = applyCustomOverrides(baseItems);
+  const merged = await applyCustomOverrides(baseItems);
   const total = merged.length;
   const offset = filters.offset ?? 0;
   const limit = filters.limit ?? 250;
@@ -603,7 +603,7 @@ export async function getProductBySlug(slug: string) {
     item = items.find((p) => p.slug === slug) ?? null;
   }
   if (!item) return null;
-  const [overridden] = applyCustomOverrides([item]);
+  const [overridden] = await applyCustomOverrides([item]);
   return overridden;
 }
 
@@ -621,7 +621,8 @@ export async function getRelatedProducts(categoryId: string, excludeId: string, 
   if (!items.length) {
     items = getInMemoryProducts().filter((p) => p.categoryId === categoryId && p.id !== excludeId);
   }
-  return applyCustomOverrides(items).slice(0, limit);
+  const overridden = await applyCustomOverrides(items);
+  return overridden.slice(0, limit);
 }
 
 export async function getFeaturedProducts(limit = 8) {
@@ -641,7 +642,8 @@ export async function getFeaturedProducts(limit = 8) {
     const feat = memory.filter((p) => p.isFeatured);
     items = feat.length ? feat : memory;
   }
-  return applyCustomOverrides(items).slice(0, limit);
+  const overridden = await applyCustomOverrides(items);
+  return overridden.slice(0, limit);
 }
 
 export async function getProductsByIds(ids: string[]) {
@@ -656,7 +658,7 @@ export async function getProductsByIds(ids: string[]) {
   if (!items.length) {
     items = getInMemoryProducts().filter((p) => ids.includes(p.id));
   }
-  return applyCustomOverrides(items);
+  return await applyCustomOverrides(items);
 }
 
 export async function getReviews(limit = 6) {
