@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 import { db } from "@/db";
 import { auditLogs, estimateItems, estimates } from "@/db/schema";
-import { fail, ok, zodFail } from "@/lib/api";
+import { fail, ok } from "@/lib/api";
 import { getOrderFromStore, updateOrderStatusInStore } from "@/lib/orders-store";
+import { persistOrderToDb } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ number: string
     if (cached) {
       estimate = cached;
       items = cached.items;
+      void persistOrderToDb(cached);
     }
   }
 
@@ -52,6 +53,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ number: strin
 
   // 1. Update in Universal Store
   const storeUpdated = updateOrderStatusInStore(number, patchData);
+  if (storeUpdated) {
+    void persistOrderToDb(storeUpdated);
+  }
 
   // 2. Best-effort DB update & audit trail logging
   let dbUpdated: any = null;

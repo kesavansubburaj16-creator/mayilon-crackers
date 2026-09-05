@@ -132,3 +132,54 @@ export function clearAllProductsInStore(): void {
   g.__mayilonClearSeedMode = true;
   syncFileSave([]);
 }
+
+type GlobalWithReorder = GlobalWithProducts & {
+  __mayilonProductOrderMap?: Map<string, number>;
+};
+
+const g2 = globalThis as GlobalWithReorder;
+const REORDER_MAP_FILE = path.join(os.tmpdir(), "mayilon_product_reorder.json");
+
+if (!g2.__mayilonProductOrderMap) {
+  g2.__mayilonProductOrderMap = new Map<string, number>();
+  try {
+    if (fs.existsSync(REORDER_MAP_FILE)) {
+      const raw = fs.readFileSync(REORDER_MAP_FILE, "utf-8");
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === "object") {
+        for (const [k, v] of Object.entries(obj)) {
+          g2.__mayilonProductOrderMap.set(k, Number(v));
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+export function saveProductReorder(orderIds: string[]) {
+  const map = g2.__mayilonProductOrderMap!;
+  map.clear();
+  const obj: Record<string, number> = {};
+  orderIds.forEach((id, idx) => {
+    map.set(id, idx);
+    obj[id] = idx;
+  });
+  try {
+    fs.writeFileSync(REORDER_MAP_FILE, JSON.stringify(obj), "utf-8");
+  } catch (e) {}
+}
+
+export function getProductReorderMap(): Map<string, number> {
+  if (!g2.__mayilonProductOrderMap || g2.__mayilonProductOrderMap.size === 0) {
+    try {
+      if (fs.existsSync(REORDER_MAP_FILE)) {
+        const raw = fs.readFileSync(REORDER_MAP_FILE, "utf-8");
+        const obj = JSON.parse(raw);
+        g2.__mayilonProductOrderMap = new Map<string, number>();
+        for (const [k, v] of Object.entries(obj)) {
+          g2.__mayilonProductOrderMap.set(k, Number(v));
+        }
+      }
+    } catch (e) {}
+  }
+  return g2.__mayilonProductOrderMap || new Map<string, number>();
+}

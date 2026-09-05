@@ -375,6 +375,29 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function moveProduct(index: number, direction: "up" | "down") {
+    const newIdx = direction === "up" ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= products.length) return;
+    const updated = [...products];
+    const temp = updated[index];
+    updated[index] = updated[newIdx];
+    updated[newIdx] = temp;
+    setProducts(updated);
+
+    const orderIds = updated.map((p) => p.id || p.sku);
+    try {
+      await fetch("/api/v1/admin/products/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds }),
+      });
+      setNotificationToast(`Product sequence updated successfully!`);
+      setTimeout(() => setNotificationToast(null), 3000);
+    } catch (e) {
+      console.error("Reorder failed", e);
+    }
+  }
+
   async function handleProductSave() {
     if (!editingName.trim()) return;
     const newPrice = parseFloat(editingPrice) || 100;
@@ -694,6 +717,7 @@ export default function AdminDashboardPage() {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                       <tr>
+                        <th className="py-3 px-4 text-center">Order</th>
                         <th className="py-3 px-4">Image</th>
                         <th className="py-3 px-4">SKU</th>
                         <th className="py-3 px-4">Product Name & Tamil Name</th>
@@ -706,8 +730,29 @@ export default function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {products.map((p) => (
+                      {products.map((p, idx) => (
                         <tr key={p.sku || p.id} className="hover:bg-slate-800/30">
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                onClick={() => void moveProduct(idx, "up")}
+                                disabled={idx === 0}
+                                className="px-1.5 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[10px] rounded font-bold disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
+                                title="Move Product Up"
+                              >
+                                ⬆️
+                              </button>
+                              <span className="text-[10px] font-mono text-slate-500 font-semibold">{idx + 1}</span>
+                              <button
+                                onClick={() => void moveProduct(idx, "down")}
+                                disabled={idx === products.length - 1}
+                                className="px-1.5 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[10px] rounded font-bold disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors"
+                                title="Move Product Down"
+                              >
+                                ⬇️
+                              </button>
+                            </div>
+                          </td>
                           <td className="py-3 px-4">
                             {p.imageUrl ? (
                               <img src={p.imageUrl} alt={p.name} className="w-10 h-10 object-cover rounded-lg border border-slate-800 bg-slate-950" />

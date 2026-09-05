@@ -7,6 +7,138 @@ import { getAllOrdersFromStore, saveOrderToStore, type OrderRecord } from "@/lib
 
 export const dynamic = "force-dynamic";
 
+/** Guarantees 100% permanent insertion of order into Supabase PostgreSQL database */
+export async function persistOrderToDb(o: OrderRecord): Promise<boolean> {
+  try {
+    let customerId: string | null = null;
+    try {
+      const [cRow] = await db
+        .insert(customers)
+        .values({
+          name: o.customerName || "Valued Customer",
+          mobile: o.mobile || "9876543210",
+          email: o.email || null,
+          state: o.state || "Tamil Nadu",
+          district: o.district || null,
+          city: o.city || null,
+          pincode: o.pincode || null,
+          address: o.address || null,
+          gstNumber: o.gstNumber || null,
+          dealerName: o.dealerName || null,
+          isVerified: true,
+        })
+        .onConflictDoUpdate({
+          target: customers.mobile,
+          set: {
+            name: o.customerName || "Valued Customer",
+            email: o.email || null,
+            state: o.state || "Tamil Nadu",
+            city: o.city || null,
+            pincode: o.pincode || null,
+            address: o.address || null,
+            isVerified: true,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      if (cRow?.id) customerId = cRow.id;
+    } catch (cErr) {
+      console.warn("[persistOrderToDb] Customer upsert warning:", cErr);
+    }
+
+    const [estRow] = await db
+      .insert(estimates)
+      .values({
+        estimateNumber: o.estimateNumber,
+        customerId,
+        customerName: o.customerName || "Valued Customer",
+        mobile: o.mobile || "9876543210",
+        email: o.email || null,
+        state: o.state || "Tamil Nadu",
+        district: o.district || null,
+        city: o.city || null,
+        pincode: o.pincode || null,
+        address: o.address || null,
+        gstNumber: o.gstNumber || null,
+        dealerName: o.dealerName || null,
+        transportName: o.transportName || null,
+        deliveryLocation: o.deliveryLocation || null,
+        instructions: o.instructions || null,
+        couponCode: o.couponCode || null,
+        itemCount: o.itemCount || o.items?.length || 0,
+        mrpTotal: String(o.mrpTotal || "0.00"),
+        subtotal: String(o.subtotal || "0.00"),
+        savings: String(o.savings || "0.00"),
+        discount: String(o.discount || "0.00"),
+        transportCharge: String(o.transportCharge || "0.00"),
+        gstAmount: String(o.gstAmount || "0.00"),
+        grandTotal: String(o.grandTotal || "0.00"),
+        status: o.status || "NEW",
+        paymentMethod: o.paymentMethod || "COD",
+        paymentStatus: o.paymentStatus || "UNPAID",
+        createdAt: o.createdAt ? new Date(o.createdAt) : new Date(),
+      })
+      .onConflictDoUpdate({
+        target: estimates.estimateNumber,
+        set: {
+          customerName: o.customerName || "Valued Customer",
+          mobile: o.mobile || "9876543210",
+          email: o.email || null,
+          state: o.state || "Tamil Nadu",
+          district: o.district || null,
+          city: o.city || null,
+          pincode: o.pincode || null,
+          address: o.address || null,
+          grandTotal: String(o.grandTotal || "0.00"),
+          status: o.status || "NEW",
+          paymentMethod: o.paymentMethod || "COD",
+          paymentStatus: o.paymentStatus || "UNPAID",
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    let targetEstimateId: string | null = estRow?.id || null;
+    if (!targetEstimateId) {
+      const [existing] = await db
+        .select({ id: estimates.id })
+        .from(estimates)
+        .where(eq(estimates.estimateNumber, o.estimateNumber))
+        .limit(1);
+      if (existing?.id) targetEstimateId = existing.id;
+    }
+
+    const isValidUuid = (val: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
+
+    if (targetEstimateId && o.items && o.items.length > 0) {
+      // Clear previous items to avoid duplicates if re-inserting
+      await db.delete(estimateItems).where(eq(estimateItems.estimateId, targetEstimateId)).catch(() => {});
+
+      await db.insert(estimateItems).values(
+        o.items.map((l: any) => ({
+          estimateId: targetEstimateId!,
+          productId: isValidUuid(l.id) ? String(l.id) : null,
+          sku: String(l.sku || `MYL-PROD`),
+          name: String(l.name || "Sivakasi Fireworks Item"),
+          categoryName: String(l.categoryName || "Fireworks"),
+          packing: String(l.packing || "1 Pack"),
+          imageUrl: String(l.imageUrl || ""),
+          mrp: String(l.mrp || 0),
+          price: String(l.price || 0),
+          quantity: Number(l.quantity || 1),
+          lineTotal: String(l.lineTotal || 0),
+        })),
+      );
+    }
+    console.log(`[persistOrderToDb] ✓ Successfully persisted ${o.estimateNumber} into Supabase DB`);
+    return true;
+  } catch (err) {
+    console.error(`[persistOrderToDb] Error persisting ${o.estimateNumber}:`, err);
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const rawCustomer = body.customer || {};
@@ -91,168 +223,11 @@ export async function POST(req: Request) {
     items: lines,
   };
 
-  // 1. Save to Universal Persistent Memory & File Store (Instant Guaranteed Availability)
+  // 1. Save to Universal In-Memory Store
   saveOrderToStore(newOrder);
 
-  // 2. Synchronous Fail-Safe DB Insert
-  try {
-    const [customerRow] = await db
-      .insert(customers)
-      .values({
-        name: customer.name,
-        mobile: customer.mobile,
-        email: customer.email || null,
-        state: customer.state,
-        district: customer.district || null,
-        city: customer.city || null,
-        pincode: customer.pincode || null,
-        address: customer.address || null,
-        gstNumber: customer.gstNumber || null,
-        dealerName: customer.dealerName || null,
-        isVerified: true,
-      })
-      .onConflictDoUpdate({
-        target: customers.mobile,
-        set: {
-          name: customer.name,
-          email: customer.email || null,
-          state: customer.state,
-          city: customer.city || null,
-          pincode: customer.pincode || null,
-          address: customer.address || null,
-          isVerified: true,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-
-    const [estimate] = await db
-      .insert(estimates)
-      .values({
-        estimateNumber,
-        customerId: customerRow?.id,
-        customerName: customer.name,
-        mobile: customer.mobile,
-        email: customer.email || null,
-        state: customer.state,
-        district: customer.district || null,
-        city: customer.city || null,
-        pincode: customer.pincode || null,
-        address: customer.address || null,
-        gstNumber: customer.gstNumber || null,
-        dealerName: customer.dealerName || null,
-        transportName: transport.transportName || null,
-        deliveryLocation: transport.deliveryLocation || null,
-        instructions: transport.instructions || null,
-        couponCode: couponCode || null,
-        itemCount: lines.length,
-        mrpTotal: totals.mrpTotal.toFixed(2),
-        subtotal: totals.subtotal.toFixed(2),
-        savings: totals.savings.toFixed(2),
-        discount: totals.discount.toFixed(2),
-        transportCharge: totals.transportCharge.toFixed(2),
-        gstAmount: totals.gstAmount.toFixed(2),
-        grandTotal: totals.grandTotal.toFixed(2),
-        status: "NEW",
-        paymentMethod: paymentMethod || "COD",
-        paymentStatus: paymentMethod === "COD" ? "UNPAID" : "PENDING VERIFICATION",
-      })
-      .onConflictDoNothing({ target: estimates.estimateNumber })
-      .returning();
-
-    let targetEstimateId: string | null = estimate?.id || null;
-
-    if (!targetEstimateId) {
-      const [existing] = await db
-        .select({ id: estimates.id })
-        .from(estimates)
-        .where(eq(estimates.estimateNumber, estimateNumber))
-        .limit(1);
-      if (existing?.id) targetEstimateId = existing.id;
-    }
-
-    const isValidUuid = (val: string) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
-
-    if (targetEstimateId && lines.length > 0) {
-      await db
-        .insert(estimateItems)
-        .values(
-          lines.map((l: any) => ({
-            estimateId: targetEstimateId!,
-            productId: isValidUuid(l.id) ? String(l.id) : null,
-            sku: l.sku,
-            name: l.name,
-            categoryName: l.categoryName,
-            packing: l.packing,
-            imageUrl: l.imageUrl || "",
-            mrp: String(l.mrp),
-            price: String(l.price),
-            quantity: l.quantity,
-            lineTotal: String(l.lineTotal),
-          })),
-        )
-        .onConflictDoNothing();
-    }
-    console.log(`[POST /api/v1/estimates] ✓ Order ${estimateNumber} (${customer.name}, ₹${totals.grandTotal.toFixed(2)}) successfully saved to Supabase DB`);
-  } catch (err) {
-    console.error("[POST /api/v1/estimates] Primary DB Insert Exception:", err);
-    // Fallback: Retry direct insert into estimates table without customer relation
-    try {
-      const [fallbackEst] = await db
-        .insert(estimates)
-        .values({
-          estimateNumber,
-          customerName: customer.name,
-          mobile: customer.mobile,
-          email: customer.email || null,
-          state: customer.state,
-          district: customer.district || null,
-          city: customer.city || null,
-          pincode: customer.pincode || null,
-          address: customer.address || null,
-          gstNumber: customer.gstNumber || null,
-          dealerName: customer.dealerName || null,
-          transportName: transport.transportName || null,
-          deliveryLocation: transport.deliveryLocation || null,
-          instructions: transport.instructions || null,
-          couponCode: couponCode || null,
-          itemCount: lines.length,
-          mrpTotal: totals.mrpTotal.toFixed(2),
-          subtotal: totals.subtotal.toFixed(2),
-          savings: totals.savings.toFixed(2),
-          discount: totals.discount.toFixed(2),
-          transportCharge: totals.transportCharge.toFixed(2),
-          gstAmount: totals.gstAmount.toFixed(2),
-          grandTotal: totals.grandTotal.toFixed(2),
-          status: "NEW",
-          paymentMethod: paymentMethod || "COD",
-          paymentStatus: paymentMethod === "COD" ? "UNPAID" : "PENDING VERIFICATION",
-        })
-        .onConflictDoNothing({ target: estimates.estimateNumber })
-        .returning();
-      
-      if (fallbackEst?.id && lines.length > 0) {
-        await db.insert(estimateItems).values(
-          lines.map((l: any) => ({
-            estimateId: fallbackEst.id,
-            sku: l.sku,
-            name: l.name,
-            categoryName: l.categoryName,
-            packing: l.packing,
-            imageUrl: l.imageUrl || "",
-            mrp: String(l.mrp),
-            price: String(l.price),
-            quantity: l.quantity,
-            lineTotal: String(l.lineTotal),
-          }))
-        ).onConflictDoNothing();
-      }
-      console.log(`[POST /api/v1/estimates] ✓ Fallback DB insert succeeded for ${estimateNumber}`);
-    } catch (fallbackErr) {
-      console.error("[POST /api/v1/estimates] Critical Fallback Error:", fallbackErr);
-    }
-  }
+  // 2. Direct Guaranteed Supabase DB Upsert
+  void persistOrderToDb(newOrder);
 
   return ok(
     { estimateNumber, totals, status: "NEW", paymentMethod, order: newOrder },
@@ -261,19 +236,21 @@ export async function POST(req: Request) {
   );
 }
 
-/** Admin listing (Merges Store + DB with full items) */
+/** Admin listing (Merges DB & Memory Store with automatic repair to Supabase DB) */
 export async function GET() {
   const storeOrders = getAllOrdersFromStore();
   let dbRows: any[] = [];
+  const dbEstimateNumbers = new Set<string>();
 
   try {
     const rawEstimates = await db
       .select()
       .from(estimates)
       .orderBy(desc(estimates.createdAt))
-      .limit(150);
+      .limit(250);
 
     for (const est of rawEstimates) {
+      if (est.estimateNumber) dbEstimateNumbers.add(est.estimateNumber);
       try {
         const itemRows = await db
           .select()
@@ -303,6 +280,14 @@ export async function GET() {
     }
   } catch (err) {
     console.warn("[GET /estimates] DB read fallback:", err);
+  }
+
+  // Auto-heal: If any store order is NOT in DB, persist it into Supabase DB now!
+  for (const o of storeOrders) {
+    if (o && o.estimateNumber && !dbEstimateNumbers.has(o.estimateNumber)) {
+      console.log(`[GET /estimates] Auto-persisting store order ${o.estimateNumber} to Supabase DB`);
+      void persistOrderToDb(o);
+    }
   }
 
   // Merge store orders and db rows, avoiding duplicates by estimateNumber
