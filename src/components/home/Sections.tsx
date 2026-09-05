@@ -253,7 +253,7 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
     // Fetch live products directly from API for real-time multi-device sync
     async function syncLiveProducts() {
       try {
-        const res = await fetch("/api/v1/products?limit=350&sort=alpha");
+        const res = await fetch(`/api/v1/products?limit=350&t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
         const json = await res.json();
         let apiItems = json?.data?.items || [];
 
