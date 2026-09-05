@@ -125,9 +125,18 @@ function getInMemoryProducts(): ProductWithCategory[] {
  * Guarantees that Admin edited prices, offer prices, photos (imageUrl, imageUrl2, imageUrl3)
  * and videos permanently overwrite database/seed items across all queries.
  */
-async function applyCustomOverrides(items: ProductWithCategory[]): Promise<ProductWithCategory[]> {
+async function applyCustomOverrides(
+  items: ProductWithCategory[],
+  sortBy?: string,
+): Promise<ProductWithCategory[]> {
   try {
-    const { getCustomProductsFromStore, isSeedCleared, getDeletedProductIds, loadReorderMapFromDb, getProductReorderMap } = require("./products-store");
+    const {
+      getCustomProductsFromStore,
+      isSeedCleared,
+      getDeletedProductIds,
+      loadReorderMapFromDb,
+      getProductReorderMap,
+    } = require("./products-store");
     const customList = getCustomProductsFromStore();
     const seedCleared = isSeedCleared();
     const deletedSet = getDeletedProductIds();
@@ -172,8 +181,12 @@ async function applyCustomOverrides(items: ProductWithCategory[]): Promise<Produ
           name: c.name || match?.name || "Fireworks Item",
           nameTa: c.nameTa || match?.nameTa || null,
           categoryId: c.categoryId || match?.categoryId || "cat-1",
-          shortDescription: c.shortDescription || match?.shortDescription || `${c.name} — Sivakasi quality product.`,
-          description: c.description || match?.description || `${c.name} manufactured at Sivakasi unit with high purity chemical composition.`,
+          shortDescription:
+            c.shortDescription || match?.shortDescription || `${c.name} — Sivakasi quality product.`,
+          description:
+            c.description ||
+            match?.description ||
+            `${c.name} manufactured at Sivakasi unit with high purity chemical composition.`,
           imageUrl: c.imageUrl || match?.imageUrl || "/images/placeholder.jpg",
           gallery: gallery.length > 0 ? gallery : [match?.imageUrl || "/images/placeholder.jpg"],
           videoUrl: c.videoUrl || match?.videoUrl || null,
@@ -237,32 +250,57 @@ async function applyCustomOverrides(items: ProductWithCategory[]): Promise<Produ
       }
     }
 
-    // Apply Admin Product Sequence Reorder Map (Primary Catalogue Sequence)
-    let reorderMap: Map<string, number> = getProductReorderMap();
-    if (!reorderMap || reorderMap.size === 0) {
-      reorderMap = await loadReorderMapFromDb();
-    }
+    if (sortBy) {
+      switch (sortBy) {
+        case "price-asc":
+          updatedItems.sort((a, b) => Number(a.offerPrice) - Number(b.offerPrice));
+          break;
+        case "price-desc":
+          updatedItems.sort((a, b) => Number(b.offerPrice) - Number(a.offerPrice));
+          break;
+        case "newest":
+          updatedItems.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+          break;
+        case "discount":
+          updatedItems.sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
+          break;
+        case "alpha":
+          updatedItems.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case "best":
+          updatedItems.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
+          break;
+      }
+    } else {
+      // Apply Admin Product Sequence Reorder Map (Primary Catalogue Sequence)
+      let reorderMap: Map<string, number> = getProductReorderMap();
+      if (!reorderMap || reorderMap.size === 0) {
+        reorderMap = await loadReorderMapFromDb();
+      }
 
-    if (reorderMap && reorderMap.size > 0) {
-      updatedItems.sort((a, b) => {
-        const posA =
-          reorderMap.get(a.id) ??
-          (a.sku ? reorderMap.get(a.sku) : undefined) ??
-          (a.slug ? reorderMap.get(a.slug) : undefined) ??
-          (a.name ? reorderMap.get(a.name) : undefined) ??
-          (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
-          999999;
-        const posB =
-          reorderMap.get(b.id) ??
-          (b.sku ? reorderMap.get(b.sku) : undefined) ??
-          (b.slug ? reorderMap.get(b.slug) : undefined) ??
-          (b.name ? reorderMap.get(b.name) : undefined) ??
-          (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
-          999999;
+      if (reorderMap && reorderMap.size > 0) {
+        updatedItems.sort((a, b) => {
+          const posA =
+            reorderMap.get(a.id) ??
+            (a.sku ? reorderMap.get(a.sku) : undefined) ??
+            (a.slug ? reorderMap.get(a.slug) : undefined) ??
+            (a.name ? reorderMap.get(a.name) : undefined) ??
+            (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
+            999999;
+          const posB =
+            reorderMap.get(b.id) ??
+            (b.sku ? reorderMap.get(b.sku) : undefined) ??
+            (b.slug ? reorderMap.get(b.slug) : undefined) ??
+            (b.name ? reorderMap.get(b.name) : undefined) ??
+            (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
+            999999;
 
-        if (posA !== posB) return posA - posB;
-        return 0;
-      });
+          if (posA !== posB) return posA - posB;
+          return 0;
+        });
+      }
     }
 
     return updatedItems;
@@ -581,7 +619,7 @@ export async function getProducts(filters: ProductFilters = {}) {
   }
 
   // Apply Custom Admin Overwrites (Price, MRP, Photos & Videos)
-  const merged = await applyCustomOverrides(baseItems);
+  const merged = await applyCustomOverrides(baseItems, filters.sort);
   const total = merged.length;
   const offset = filters.offset ?? 0;
   const limit = filters.limit ?? 250;

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { categories, products } from "@/db/schema";
 import { fail, ok } from "@/lib/api";
@@ -153,6 +154,12 @@ export async function POST(req: Request) {
     console.error("[POST /api/v1/products] DB Write Error:", err);
   }
 
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/pricelist");
+    revalidatePath("/products");
+  } catch (e) {}
+
   return ok({ product: productRecord }, "Product saved successfully to database", 201);
 }
 
@@ -172,6 +179,11 @@ export async function DELETE(req: Request) {
 
   if (action === "clear-all") {
     clearAllProductsInStore();
+    try {
+      revalidatePath("/", "layout");
+      revalidatePath("/pricelist");
+      revalidatePath("/products");
+    } catch (e) {}
     return ok({}, "All catalogue products cleared successfully");
   }
 
@@ -193,6 +205,12 @@ export async function DELETE(req: Request) {
   } catch (err) {
     console.warn("[DELETE /api/v1/products] DB soft delete error:", err);
   }
+
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/pricelist");
+    revalidatePath("/products");
+  } catch (e) {}
 
   return ok({ id: target }, "Product deleted successfully");
 }

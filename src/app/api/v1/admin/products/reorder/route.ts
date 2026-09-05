@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { fail, ok, requireAdmin } from "@/lib/api";
 import { getProducts } from "@/lib/data";
 import { saveProductReorder } from "@/lib/products-store";
@@ -22,6 +23,12 @@ export async function POST(req: Request) {
   }
 
   await saveProductReorder(items);
+
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/pricelist");
+    revalidatePath("/products");
+  } catch (e) {}
 
   const { items: sortedProducts } = await getProducts({ limit: 250 });
 
