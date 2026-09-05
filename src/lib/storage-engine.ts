@@ -154,9 +154,37 @@ export function getDeletedProductIdsFromEngine(): Set<string> {
   return new Set(STORAGE.deletedProductIds);
 }
 
-export function saveProductReorderToEngine(orderIds: string[]): void {
+export function saveProductReorderToEngine(itemsOrIds: any[]): void {
+  const mapObj: Record<string, number> = {};
+  const orderIds: string[] = [];
+
+  if (Array.isArray(itemsOrIds)) {
+    itemsOrIds.forEach((item, idx) => {
+      if (typeof item === "string" && item.trim()) {
+        orderIds.push(item);
+        mapObj[item] = idx;
+      } else if (item && typeof item === "object") {
+        if (item.id) {
+          orderIds.push(String(item.id));
+          mapObj[String(item.id)] = idx;
+        }
+        if (item.sku) {
+          orderIds.push(String(item.sku));
+          mapObj[String(item.sku)] = idx;
+        }
+        if (item.slug) {
+          mapObj[String(item.slug)] = idx;
+        }
+        if (item.name) {
+          mapObj[String(item.name)] = idx;
+        }
+      }
+    });
+  }
+
   STORAGE.settings["product_reorder_map"] = {
     orderIds,
+    mapObj,
     updatedAt: new Date().toISOString(),
   };
   saveDiskData(STORAGE);
@@ -165,10 +193,18 @@ export function saveProductReorderToEngine(orderIds: string[]): void {
 export function getProductReorderMapFromEngine(): Map<string, number> {
   const map = new Map<string, number>();
   const setting = STORAGE.settings["product_reorder_map"];
-  if (setting && Array.isArray(setting.orderIds)) {
-    setting.orderIds.forEach((id: string, idx: number) => {
-      map.set(id, idx);
-    });
+  if (setting) {
+    if (setting.mapObj && typeof setting.mapObj === "object") {
+      for (const [k, v] of Object.entries(setting.mapObj)) {
+        if (k && v !== undefined && v !== null) {
+          map.set(k, Number(v));
+        }
+      }
+    } else if (Array.isArray(setting.orderIds)) {
+      setting.orderIds.forEach((id: string, idx: number) => {
+        if (id) map.set(id, idx);
+      });
+    }
   }
   return map;
 }

@@ -247,12 +247,14 @@ function applyCustomOverrides(items: ProductWithCategory[]): ProductWithCategory
           (a.sku ? reorderMap.get(a.sku) : undefined) ??
           (a.slug ? reorderMap.get(a.slug) : undefined) ??
           (a.name ? reorderMap.get(a.name) : undefined) ??
+          (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
           999999;
         const posB =
           reorderMap.get(b.id) ??
           (b.sku ? reorderMap.get(b.sku) : undefined) ??
           (b.slug ? reorderMap.get(b.slug) : undefined) ??
           (b.name ? reorderMap.get(b.name) : undefined) ??
+          (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
           999999;
 
         if (posA !== posB) return posA - posB;

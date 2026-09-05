@@ -173,13 +173,39 @@ export default function AdminDashboardPage() {
     setDraggedIndex(null);
     setDragOverIndex(null);
 
+    const items = updated.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+    }));
     const orderIds = updated.map((p) => p.id || p.sku);
+
     try {
-      await fetch("/api/v1/admin/products/reorder", {
+      const res = await fetch("/api/v1/admin/products/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds }),
+        body: JSON.stringify({ items, orderIds }),
       });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.items)) {
+        const reordered = json.data.items.map((p: any) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          nameTa: p.nameTa || "",
+          categoryName: p.categoryName || "Fireworks",
+          packing: p.packing || "1 Box",
+          mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
+          offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
+          stock: parseInt(String(p.stock || 500)),
+          imageUrl: p.imageUrl || "",
+          imageUrl2: p.imageUrl2 || "",
+          imageUrl3: p.imageUrl3 || "",
+          videoUrl: p.videoUrl || "",
+          status: p.status || "ACTIVE",
+        }));
+        setProducts(reordered);
+      }
       setNotificationToast(`✓ Moved "${draggedItem.name}" to position #${dropIndex + 1} & saved permanently!`);
       setTimeout(() => setNotificationToast(null), 3500);
     } catch (err) {
@@ -196,13 +222,39 @@ export default function AdminDashboardPage() {
     updated[newIdx] = temp;
     setProducts(updated);
 
+    const items = updated.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+    }));
     const orderIds = updated.map((p) => p.id || p.sku);
+
     try {
-      await fetch("/api/v1/admin/products/reorder", {
+      const res = await fetch("/api/v1/admin/products/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds }),
+        body: JSON.stringify({ items, orderIds }),
       });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.items)) {
+        const reordered = json.data.items.map((p: any) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          nameTa: p.nameTa || "",
+          categoryName: p.categoryName || "Fireworks",
+          packing: p.packing || "1 Box",
+          mrp: parseFloat(String(p.mrp || p.offerPrice || 0)) || 0,
+          offerPrice: parseFloat(String(p.offerPrice || p.mrp || 0)) || 0,
+          stock: parseInt(String(p.stock || 500)),
+          imageUrl: p.imageUrl || "",
+          imageUrl2: p.imageUrl2 || "",
+          imageUrl3: p.imageUrl3 || "",
+          videoUrl: p.videoUrl || "",
+          status: p.status || "ACTIVE",
+        }));
+        setProducts(reordered);
+      }
       setNotificationToast(`✓ Product sequence updated successfully!`);
       setTimeout(() => setNotificationToast(null), 3000);
     } catch (e) {

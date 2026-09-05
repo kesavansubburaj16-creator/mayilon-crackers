@@ -128,27 +128,30 @@ export function clearAllProductsInStore(): void {
 }
 
 /** Save product reorder mapping to storage engine */
-export function saveProductReorder(orderIds: string[]) {
-  saveProductReorderToEngine(orderIds);
+export function saveProductReorder(itemsOrIds: any[]) {
+  saveProductReorderToEngine(itemsOrIds);
 
-  const map = g.__mayilonProductOrderMap || new Map<string, number>();
-  map.clear();
-  orderIds.forEach((id, idx) => map.set(id, idx));
-  g.__mayilonProductOrderMap = map;
+  const engineMap = getProductReorderMapFromEngine();
+  g.__mayilonProductOrderMap = engineMap;
 
   // Optional background sync to DB settings table if available
   try {
+    const orderIds = Array.isArray(itemsOrIds)
+      ? itemsOrIds.map((it) => (typeof it === "string" ? it : it?.id || it?.sku)).filter(Boolean)
+      : [];
+    const mapObj = Object.fromEntries(engineMap.entries());
+
     void db
       .insert(settings)
       .values({
         key: "product_reorder_map",
-        value: { orderIds },
+        value: { orderIds, mapObj },
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: settings.key,
         set: {
-          value: { orderIds },
+          value: { orderIds, mapObj },
           updatedAt: new Date(),
         },
       })
@@ -167,12 +170,14 @@ export async function loadReorderMapFromDb(): Promise<Map<string, number>> {
       .where(eq(settings.key, "product_reorder_map"))
       .limit(1);
     if (row?.value && typeof row.value === "object") {
-      const orderIds = (row.value as any).orderIds;
-      if (Array.isArray(orderIds)) {
-        saveProductReorderToEngine(orderIds);
-        const map = getProductReorderMapFromEngine();
-        return map;
+      const val = row.value as any;
+      if (val.mapObj && typeof val.mapObj === "object") {
+        const entries = Object.entries(val.mapObj).map(([k, v]) => ({ id: k, index: v }));
+        saveProductReorderToEngine(entries);
+      } else if (Array.isArray(val.orderIds)) {
+        saveProductReorderToEngine(val.orderIds);
       }
+      return getProductReorderMapFromEngine();
     }
   } catch (e) {
     console.warn("[loadReorderMapFromDb] DB read note:", e);
