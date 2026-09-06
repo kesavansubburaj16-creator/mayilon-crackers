@@ -365,30 +365,33 @@ export default function AdminDashboardPage() {
       }
 
       // 2. Fetch KPIs from server or use instant calculated fallback
+      const calculatedKpis = {
+        pipeline: Math.round(totalPipelineRevenue),
+        estimateCount: loadedOrders.length,
+        paidOrdersCount,
+        paidOrdersRevenue: Math.round(paidOrdersRevenue),
+        todayCount,
+        todayValue: Math.round(todayValue),
+      };
+
       try {
         const statsRes = await fetch("/api/v1/admin/stats");
         const statsJson = await statsRes.json();
-        if (statsJson.success && statsJson.data?.kpis && statsJson.data.kpis.estimateCount > 0) {
-          setKpis(statsJson.data.kpis);
-        } else {
+        if (statsJson.success && statsJson.data?.kpis) {
+          const k = statsJson.data.kpis;
           setKpis({
-            pipeline: Math.round(totalPipelineRevenue),
-            estimateCount: loadedOrders.length,
-            paidOrdersCount,
-            paidOrdersRevenue: Math.round(paidOrdersRevenue),
-            todayCount,
-            todayValue: Math.round(todayValue),
+            pipeline: Number(k.pipeline || k.totalRevenue || calculatedKpis.pipeline),
+            estimateCount: Number(k.estimateCount || calculatedKpis.estimateCount),
+            paidOrdersCount: Number(k.paidOrdersCount || calculatedKpis.paidOrdersCount),
+            paidOrdersRevenue: Number(k.paidOrdersRevenue || calculatedKpis.paidOrdersRevenue),
+            todayCount: Number(k.todayCount || calculatedKpis.todayCount),
+            todayValue: Number(k.todayValue || calculatedKpis.todayValue),
           });
+        } else {
+          setKpis(calculatedKpis);
         }
       } catch (err) {
-        setKpis({
-          pipeline: Math.round(totalPipelineRevenue),
-          estimateCount: loadedOrders.length,
-          paidOrdersCount,
-          paidOrdersRevenue: Math.round(paidOrdersRevenue),
-          todayCount,
-          todayValue: Math.round(todayValue),
-        });
+        setKpis(calculatedKpis);
       }
 
       // 3. Fetch Products Catalog with Cache-Busting

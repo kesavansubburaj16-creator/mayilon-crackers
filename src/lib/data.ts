@@ -230,15 +230,15 @@ export function getAllProducts(): ProductWithCategory[] {
   if (reorderMap && reorderMap.size > 0) {
     filtered.sort((a, b) => {
       const posA =
-        reorderMap.get(a.id) ??
         (a.sku ? reorderMap.get(a.sku) : undefined) ??
+        (a.id ? reorderMap.get(a.id) : undefined) ??
         (a.slug ? reorderMap.get(a.slug) : undefined) ??
         (a.name ? reorderMap.get(a.name) : undefined) ??
         (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
         999999;
       const posB =
-        reorderMap.get(b.id) ??
         (b.sku ? reorderMap.get(b.sku) : undefined) ??
+        (b.id ? reorderMap.get(b.id) : undefined) ??
         (b.slug ? reorderMap.get(b.slug) : undefined) ??
         (b.name ? reorderMap.get(b.name) : undefined) ??
         (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
