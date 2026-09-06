@@ -1,5 +1,6 @@
 import { IMAGE_POOL, SEED_CATEGORIES, SEED_PRODUCTS, SEED_REVIEWS } from "./seed-data";
 import { slugify } from "./slug";
+import { getAllCustomProducts, getDeletedProductIds, getProductReorderMap } from "./db";
 
 const CATEGORY_CODE: Record<string, string> = {
   "kids-special": "KDS",
@@ -164,7 +165,89 @@ export function getAllProducts(): ProductWithCategory[] {
     });
   }
 
-  return list;
+  // Merge Custom Products & Filter Deleted
+  const deletedSet = getDeletedProductIds();
+  let filtered = list.filter((p) => !deletedSet.has(p.id) && !deletedSet.has(p.sku));
+  const customList = getAllCustomProducts();
+
+  if (Array.isArray(customList) && customList.length > 0) {
+    for (const c of customList) {
+      const mrpNum = Number(c.mrp) || 100;
+      const offerNum = Number(c.offerPrice) || mrpNum;
+      const customItem: ProductWithCategory = {
+        id: c.id,
+        sku: c.sku,
+        slug: c.slug || slugify(c.name),
+        name: c.name,
+        nameTa: c.nameTa || null,
+        categoryId: c.categoryId || "cat-1",
+        shortDescription: c.shortDescription || `${c.name} — Sivakasi fireworks item.`,
+        description: c.description || `${c.name} manufactured under PESO licence with high purity composition.`,
+        imageUrl: c.imageUrl || "/images/placeholder.jpg",
+        gallery: [c.imageUrl || "/images/placeholder.jpg"],
+        videoUrl: c.videoUrl || null,
+        packing: c.packing || "1 Box",
+        piecesPerPack: c.piecesPerPack || 1,
+        mrp: mrpNum.toFixed(2),
+        discountPercent: c.discountPercent || Math.round(((mrpNum - offerNum) / mrpNum) * 100),
+        offerPrice: offerNum.toFixed(2),
+        dealerPrice: (c.dealerPrice || offerNum * 0.88).toFixed(2),
+        gstPercent: c.gstPercent || 18,
+        moq: c.moq || 1,
+        stock: c.stock || 500,
+        status: c.status || "ACTIVE",
+        isFeatured: Boolean(c.isFeatured),
+        isBestSeller: Boolean(c.isBestSeller),
+        isNewArrival: Boolean(c.isNewArrival),
+        isPremium: Boolean(c.isPremium),
+        soundLevel: c.soundLevel || "Medium",
+        burnTime: c.burnTime || "20 sec",
+        effectColors: ["Gold", "Red"],
+        ageRecommendation: "12+ with adult supervision",
+        usage: "Outdoor",
+        rating: "4.90",
+        reviewCount: 30,
+        viewCount: 250,
+        createdAt: new Date(c.createdAt || Date.now()),
+        updatedAt: new Date(),
+        deletedAt: null,
+        categoryName: c.categoryName || "Special Fireworks",
+        categorySlug: slugify(c.categoryName || "special-fireworks"),
+        categoryAccent: "#D4AF37",
+      };
+
+      const matchIdx = filtered.findIndex((it) => it.id === c.id || it.sku === c.sku);
+      if (matchIdx !== -1) {
+        filtered[matchIdx] = customItem;
+      } else {
+        filtered.push(customItem);
+      }
+    }
+  }
+
+  // Apply Custom Reorder Sequence Map if un-sorted
+  const reorderMap = getProductReorderMap();
+  if (reorderMap && reorderMap.size > 0) {
+    filtered.sort((a, b) => {
+      const posA =
+        reorderMap.get(a.id) ??
+        (a.sku ? reorderMap.get(a.sku) : undefined) ??
+        (a.slug ? reorderMap.get(a.slug) : undefined) ??
+        (a.name ? reorderMap.get(a.name) : undefined) ??
+        (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
+        999999;
+      const posB =
+        reorderMap.get(b.id) ??
+        (b.sku ? reorderMap.get(b.sku) : undefined) ??
+        (b.slug ? reorderMap.get(b.slug) : undefined) ??
+        (b.name ? reorderMap.get(b.name) : undefined) ??
+        (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
+        999999;
+      return posA - posB;
+    });
+  }
+
+  return filtered;
 }
 
 export type ProductFilters = {
