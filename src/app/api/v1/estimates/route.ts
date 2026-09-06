@@ -6,47 +6,74 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const orders = await getAllOrders();
-  return ok(orders);
+  return ok({ items: orders, total: orders.length });
 }
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
-  if (!body.customerName || !body.customerPhone || !Array.isArray(body.items) || body.items.length === 0) {
-    return fail("Customer name, phone number, and order items are required", [], 400);
+  const customerObj = body.customer || {};
+  const customerName = String(body.customerName || customerObj.name || "Valued Customer").trim();
+  const customerPhone = String(body.customerPhone || customerObj.mobile || customerObj.phone || "9876543210").trim();
+  const customerEmail = String(body.customerEmail || customerObj.email || "").trim() || undefined;
+
+  const itemsArray = Array.isArray(body.items) ? body.items : [];
+
+  if (!itemsArray.length) {
+    return fail("Order items list is required", [], 400);
   }
 
-  const estimateNumber = `MYL-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const estimateNumber = String(
+    body.estimateNumber ||
+    `MYL-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`
+  ).trim();
 
-  const orderRecord: OrderRecord = {
-    id: `ord-${Date.now()}`,
-    estimateNumber,
-    customerName: String(body.customerName).trim(),
-    customerPhone: String(body.customerPhone).trim(),
-    customerEmail: body.customerEmail ? String(body.customerEmail).trim() : undefined,
-    city: String(body.city || "Sivakasi").trim(),
-    state: String(body.state || "Tamil Nadu").trim(),
-    pincode: String(body.pincode || "626123").trim(),
-    address: String(body.address || "").trim(),
-    totalMrp: Number(body.totalMrp) || 0,
-    subtotal: Number(body.subtotal) || 0,
-    discountAmount: Number(body.discountAmount) || 0,
-    packingCharges: Number(body.packingCharges) || 0,
-    transportCharges: Number(body.transportCharges) || 0,
-    totalAmount: Number(body.totalAmount) || 0,
-    items: body.items.map((it: any) => ({
+  const formattedItems = itemsArray.map((it: any) => {
+    const offer = Number(it.offerPrice || it.price) || 0;
+    const mrpVal = Number(it.mrp) || offer;
+    const qtyVal = Number(it.quantity) || 1;
+    const lineTot = Number(it.lineTotal || it.total) || (offer * qtyVal);
+    return {
       id: String(it.id || `item-${Date.now()}`),
       sku: String(it.sku || "MYL-PROD"),
       name: String(it.name || "Fireworks Item"),
       packing: String(it.packing || "1 Box"),
-      mrp: Number(it.mrp) || 0,
-      offerPrice: Number(it.offerPrice) || Number(it.price) || 0,
-      quantity: Number(it.quantity) || 1,
-      total: Number(it.total) || (Number(it.offerPrice || it.price || 0) * Number(it.quantity || 1)),
+      mrp: mrpVal,
+      offerPrice: offer,
+      quantity: qtyVal,
+      total: lineTot,
       imageUrl: it.imageUrl || "/images/placeholder.jpg",
-    })),
-    status: "PENDING",
-    paymentStatus: body.paymentMethod === "COD" ? "UNPAID" : "PAID",
+    };
+  });
+
+  const subtotalVal = Number(body.subtotal || body.totals?.subtotal) ||
+    formattedItems.reduce((sum, item) => sum + item.total, 0);
+
+  const mrpTotalVal = Number(body.totalMrp || body.mrpTotal || body.totals?.mrpTotal) ||
+    formattedItems.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
+
+  const discountVal = Number(body.discountAmount || body.discount || body.totals?.discount) || (mrpTotalVal - subtotalVal);
+  const totalAmountVal = Number(body.totalAmount || body.grandTotal || body.totals?.grandTotal) || subtotalVal;
+
+  const orderRecord: OrderRecord = {
+    id: String(body.id || `ord-${Date.now()}`),
+    estimateNumber,
+    customerName,
+    customerPhone,
+    customerEmail,
+    city: String(body.city || customerObj.city || "Sivakasi").trim(),
+    state: String(body.state || customerObj.state || "Tamil Nadu").trim(),
+    pincode: String(body.pincode || customerObj.pincode || "626123").trim(),
+    address: String(body.address || customerObj.address || "").trim(),
+    totalMrp: mrpTotalVal,
+    subtotal: subtotalVal,
+    discountAmount: Math.max(0, discountVal),
+    packingCharges: Number(body.packingCharges) || 0,
+    transportCharges: Number(body.transportCharges) || 0,
+    totalAmount: totalAmountVal,
+    items: formattedItems,
+    status: body.status || "PENDING",
+    paymentStatus: body.paymentStatus || (body.paymentMethod === "COD" ? "UNPAID" : "PAID"),
     paymentMethod: body.paymentMethod || "UPI",
     notes: body.notes || "",
     createdAt: new Date().toISOString(),
@@ -55,15 +82,15 @@ export async function POST(req: Request) {
 
   await saveOrder(orderRecord);
 
-  // Trigger Real-Time Notification Webhook Payload Simulation (Email / WhatsApp / SMS Alert)
-  console.log(`[REAL-TIME ALERT] 🚀 New Order #${estimateNumber} placed by ${orderRecord.customerName} (₹${orderRecord.totalAmount})`);
+  console.log(`[REAL-TIME ALERT] 🚀 New Order #${estimateNumber} placed by ${customerName} (+91 ${customerPhone}) - Total: ₹${totalAmountVal}`);
 
   try {
     revalidatePath("/", "layout");
     revalidatePath("/admin");
     revalidatePath("/track");
     revalidatePath("/my-orders");
+    revalidatePath(`/estimate/${estimateNumber}`);
   } catch (e) {}
 
-  return ok({ order: orderRecord }, "Order placed successfully", 201);
+  return ok({ order: orderRecord, estimateNumber }, "Order placed successfully", 201);
 }

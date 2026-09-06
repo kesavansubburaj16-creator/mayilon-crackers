@@ -302,12 +302,15 @@ export default function AdminDashboardPage() {
     try {
       // 1. Fetch Orders
       const estRes = await fetch("/api/v1/estimates");
-      const estJson = await estRes.json();
+      const estJson = await estRes.json().catch(() => ({}));
       let loadedOrders: Order[] = [];
-      if (estJson.success && Array.isArray(estJson.data?.items)) {
-        loadedOrders = estJson.data.items;
-        setOrders(loadedOrders);
-      }
+      const rawOrders = Array.isArray(estJson.data?.items)
+        ? estJson.data.items
+        : Array.isArray(estJson.data)
+        ? estJson.data
+        : [];
+      loadedOrders = rawOrders;
+      setOrders(loadedOrders);
 
       // Calculate live dynamic KPIs directly from loaded orders
       const parseAmount = (val: any) => {
