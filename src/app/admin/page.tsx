@@ -309,7 +309,27 @@ export default function AdminDashboardPage() {
         : Array.isArray(estJson.data)
         ? estJson.data
         : [];
-      loadedOrders = rawOrders;
+      loadedOrders = rawOrders.map((item: any) => ({
+        id: String(item.id || item.estimateNumber || `ord-${Date.now()}`),
+        estimateNumber: String(item.estimateNumber || item.id || "").trim(),
+        customerName: String(item.customerName || item.customer_name || item.name || "Customer").trim(),
+        mobile: String(item.customerPhone || item.mobile || item.phone || "").trim(),
+        email: String(item.customerEmail || item.email || "").trim(),
+        state: String(item.state || "").trim(),
+        district: String(item.district || item.city || "").trim(),
+        city: String(item.city || "").trim(),
+        pincode: String(item.pincode || "").trim(),
+        address: String(item.address || "").trim(),
+        paymentMethod: String(item.paymentMethod || "UPI"),
+        paymentStatus: String(item.paymentStatus || "UNPAID"),
+        status: String(item.status || "PENDING"),
+        itemCount: Array.isArray(item.items) ? item.items.length : 0,
+        mrpTotal: Number(item.totalMrp || item.mrpTotal || 0),
+        subtotal: Number(item.subtotal || 0),
+        grandTotal: Number(item.totalAmount || item.grandTotal || 0),
+        createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+        items: Array.isArray(item.items) ? item.items : [],
+      }));
       setOrders(loadedOrders);
 
       // Calculate live dynamic KPIs directly from loaded orders
@@ -570,10 +590,13 @@ export default function AdminDashboardPage() {
 
   const filteredOrders = orders.filter((o) => {
     const q = searchQuery.toLowerCase();
+    const estNum = (o.estimateNumber || "").toLowerCase();
+    const custName = (o.customerName || "").toLowerCase();
+    const mob = (o.mobile || "").toLowerCase();
     const matchesSearch =
-      o.estimateNumber.toLowerCase().includes(q) ||
-      o.customerName.toLowerCase().includes(q) ||
-      o.mobile.includes(q);
+      estNum.includes(q) ||
+      custName.includes(q) ||
+      mob.includes(q);
     const matchesStatus = statusFilter === "ALL" || o.status === statusFilter || o.paymentStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
