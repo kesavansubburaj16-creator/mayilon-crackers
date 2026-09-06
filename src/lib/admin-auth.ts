@@ -1,6 +1,4 @@
 import { cookies } from "next/headers";
-import { db } from "@/db";
-import { auditLogs } from "@/db/schema";
 
 const ADMIN_COOKIE_NAME = "mayilon_admin_session";
 const DEFAULT_PASSCODE = process.env.ADMIN_PASSCODE || "mayilon-admin";
@@ -51,7 +49,7 @@ export async function isAuthorizedAdmin(): Promise<boolean> {
   }
 }
 
-/** Record Administrative Audit Log in DB */
+/** Record Administrative Audit Log */
 export async function recordAuditLog(params: {
   actor?: string;
   action: string;
@@ -59,15 +57,5 @@ export async function recordAuditLog(params: {
   entityId?: string;
   meta?: any;
 }): Promise<void> {
-  try {
-    await db.insert(auditLogs).values({
-      actor: params.actor || "ADMIN",
-      action: params.action,
-      entity: params.entity,
-      entityId: params.entityId || null,
-      meta: params.meta || {},
-    });
-  } catch (err) {
-    console.warn("[recordAuditLog] Unable to insert audit log:", err);
-  }
+  console.log(`[AUDIT LOG] ${params.action} on ${params.entity}`, params.meta);
 }
