@@ -77,6 +77,8 @@ export type CategoryRecord = {
   productCount: number;
 };
 
+export type CategorySummary = CategoryRecord;
+
 export async function getCategories(): Promise<CategoryRecord[]> {
   return SEED_CATEGORIES.map((c, i) => ({
     id: `cat-${i + 1}`,
