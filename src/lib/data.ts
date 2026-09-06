@@ -237,6 +237,11 @@ export async function getProductBySlug(slug: string): Promise<ProductWithCategor
   return items.find((p) => p.slug === slug) ?? null;
 }
 
+export async function getAllProductSlugs(): Promise<{ slug: string; updatedAt: Date }[]> {
+  const items = getAllProducts();
+  return items.map((p) => ({ slug: p.slug, updatedAt: p.updatedAt }));
+}
+
 export async function getRelatedProducts(categoryId: string, excludeId: string, limit = 8): Promise<ProductWithCategory[]> {
   const items = getAllProducts();
   return items.filter((p) => (p.categoryId === categoryId || p.categorySlug === categoryId) && p.id !== excludeId).slice(0, limit);
