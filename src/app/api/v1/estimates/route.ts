@@ -47,10 +47,10 @@ export async function POST(req: Request) {
   });
 
   const subtotalVal = Number(body.subtotal || body.totals?.subtotal) ||
-    formattedItems.reduce((sum, item) => sum + item.total, 0);
+    formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
 
   const mrpTotalVal = Number(body.totalMrp || body.mrpTotal || body.totals?.mrpTotal) ||
-    formattedItems.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
+    formattedItems.reduce((sum: number, item: any) => sum + (item.mrp * item.quantity), 0);
 
   const discountVal = Number(body.discountAmount || body.discount || body.totals?.discount) || (mrpTotalVal - subtotalVal);
   const totalAmountVal = Number(body.totalAmount || body.grandTotal || body.totals?.grandTotal) || subtotalVal;
