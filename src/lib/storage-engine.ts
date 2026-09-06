@@ -95,6 +95,8 @@ const SETTINGS_MAP = g.__mayilonSettingsMap;
 const DATA_DIR = path.join(process.cwd(), ".data");
 const STORAGE_FILE = path.join(DATA_DIR, "mayilon_system_storage.json");
 
+const CLOUD_DB_BASE = process.env.CLOUD_DB_URL || "https://mayilon-crackers-default-rtdb.firebaseio.com";
+
 function ensureStorageFile() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -146,48 +148,86 @@ function loadFromDisk() {
   } catch (err) {}
 }
 
-// Initial hydration from disk
 loadFromDisk();
+
+/* ------------------------------------------------------------------ */
+/* Cloud Database Sync Handlers                                       */
+/* ------------------------------------------------------------------ */
+
+async function syncOrdersFromCloud(): Promise<void> {
+  try {
+    const res = await fetch(`${CLOUD_DB_BASE}/orders.json`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data === "object") {
+      Object.values(data).forEach((ord: any) => {
+        if (ord && ord.estimateNumber) {
+          ORDERS_MAP.set(ord.estimateNumber, ord);
+          if (ord.id) ORDERS_MAP.set(ord.id, ord);
+        }
+      });
+      saveToDisk();
+    }
+  } catch (err) {}
+}
+
+async function syncOrderToCloud(order: OrderRecord): Promise<void> {
+  try {
+    await fetch(`${CLOUD_DB_BASE}/orders/${encodeURIComponent(order.estimateNumber)}.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+    });
+  } catch (err) {}
+}
 
 /* ------------------------------------------------------------------ */
 /* Orders Storage Interface                                           */
 /* ------------------------------------------------------------------ */
 
-export function saveOrderToEngine(order: OrderRecord): OrderRecord {
+export async function saveOrderToEngine(order: OrderRecord): Promise<OrderRecord> {
   ORDERS_MAP.set(order.estimateNumber, order);
   ORDERS_MAP.set(order.id, order);
   saveToDisk();
+  void syncOrderToCloud(order);
   return order;
 }
 
-export function getOrderFromEngine(idOrNumber: string): OrderRecord | null {
-  loadFromDisk();
-  return ORDERS_MAP.get(idOrNumber) ?? null;
+export async function getOrderFromEngine(idOrNumber: string): Promise<OrderRecord | null> {
+  let existing = ORDERS_MAP.get(idOrNumber);
+  if (!existing) {
+    await syncOrdersFromCloud();
+    existing = ORDERS_MAP.get(idOrNumber);
+  }
+  return existing ?? null;
 }
 
-export function getAllOrdersFromEngine(): OrderRecord[] {
+export async function getAllOrdersFromEngine(): Promise<OrderRecord[]> {
+  await syncOrdersFromCloud();
   loadFromDisk();
   const unique = new Map<string, OrderRecord>();
   for (const ord of ORDERS_MAP.values()) {
-    unique.set(ord.estimateNumber, ord);
+    if (ord && ord.estimateNumber) {
+      unique.set(ord.estimateNumber, ord);
+    }
   }
   return Array.from(unique.values()).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
-export function updateOrderStatusInEngine(
+export async function updateOrderStatusInEngine(
   estimateNumber: string,
   updates: Partial<OrderRecord>
-): OrderRecord | null {
-  const existing = getOrderFromEngine(estimateNumber);
+): Promise<OrderRecord | null> {
+  const existing = await getOrderFromEngine(estimateNumber);
   if (!existing) return null;
   const updated: OrderRecord = {
     ...existing,
     ...updates,
     updatedAt: new Date().toISOString(),
   };
-  saveOrderToEngine(updated);
+  await saveOrderToEngine(updated);
   return updated;
 }
 
@@ -229,8 +269,8 @@ export function saveProductReorderToEngine(itemsOrIds: any[]): void {
     if (typeof item === "string") {
       REORDER_MAP.set(item, idx);
     } else if (item && typeof item === "object") {
-      if (item.id) REORDER_MAP.set(String(item.id), idx);
       if (item.sku) REORDER_MAP.set(String(item.sku), idx);
+      if (item.id) REORDER_MAP.set(String(item.id), idx);
       if (item.slug) REORDER_MAP.set(String(item.slug), idx);
       if (item.name) REORDER_MAP.set(String(item.name), idx);
     }
