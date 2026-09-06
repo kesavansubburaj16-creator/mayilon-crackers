@@ -397,7 +397,7 @@ export function AuthModal({
                 )}
 
                 <p className="flex items-center justify-center gap-1.5 text-center text-xs font-bold text-slate-500 pt-2">
-                  <Lock size={14} className="text-red-600" /> Secure Supabase & SMS Auth
+                  <Lock size={14} className="text-red-600" /> Secure System Auth & Encryption
                 </p>
               </div>
             ) : step === "OTP" ? (

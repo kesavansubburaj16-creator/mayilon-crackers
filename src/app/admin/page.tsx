@@ -583,7 +583,7 @@ export default function AdminDashboardPage() {
 
     setEditingProduct(null);
     setIsAddingNewProduct(false);
-    setNotificationToast(`Product [${editingName}] saved directly to Supabase DB!`);
+    setNotificationToast(`Product [${editingName}] saved directly to System DB!`);
     setTimeout(() => setNotificationToast(null), 4000);
     void loadData();
   }
@@ -862,8 +862,8 @@ export default function AdminDashboardPage() {
               <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-4">
                 <div className="flex justify-between items-center mb-4">
                   <div>
-                    <h2 className="text-sm font-bold text-white">Live Product Catalog & Supabase DB Detail Editor</h2>
-                    <p className="text-xs text-slate-400">Edit product names, Tamil names, images, video links, prices, packing & stock directly in Supabase PostgreSQL DB.</p>
+                    <h2 className="text-sm font-bold text-white">Live Product Catalog & System DB Detail Editor</h2>
+                    <p className="text-xs text-slate-400">Edit product names, Tamil names, images, video links, prices, packing & stock directly in System DB.</p>
                   </div>
                   <button
                     onClick={() => openAddModal("Ground Chakkars")}
@@ -1036,7 +1036,7 @@ export default function AdminDashboardPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl my-8">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white">
-                {isAddingNewProduct ? "Add New Product to Supabase DB" : `Edit Details for ${editingName || editingProduct.name}`}
+                {isAddingNewProduct ? "Add New Product to System DB" : `Edit Details for ${editingName || editingProduct.name}`}
               </h3>
               <button onClick={() => setEditingProduct(null)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
