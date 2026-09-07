@@ -923,7 +923,7 @@ export default function AdminDashboardPage() {
                                 <Printer className="w-3 h-3" /> Packing Slip
                               </button>
                             </td>
-                            <td className="py-4 px-4 font-bold text-white">{formatINR(parseFloat(String(o.grandTotal)))}</td>
+                            <td className="py-4 px-4 font-bold text-white">{formatINR(parseFloat(String(o.grandTotal || (o as any).totalAmount || 0)))}</td>
                             <td className="py-4 px-4">
                               <span
                                 className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -1428,7 +1428,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="text-right font-bold text-sm">
-                GRAND TOTAL: {formatINR(parseFloat(String(selectedOrderForSlip.grandTotal)))}
+                GRAND TOTAL: {formatINR(parseFloat(String(selectedOrderForSlip.grandTotal || (selectedOrderForSlip as any).totalAmount || 0)))}
               </div>
             </div>
 

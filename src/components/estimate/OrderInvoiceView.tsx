@@ -75,19 +75,24 @@ export function OrderInvoiceView({
     estimateNumber: number,
     customerName: "Valued Customer",
     mobile: "9876543210",
+    customerPhone: "9876543210",
     email: "customer@mayilon.com",
+    customerEmail: "customer@mayilon.com",
     state: "Tamil Nadu",
     city: "Sivakasi",
     pincode: "626123",
     address: "Direct Sivakasi Licensed Dispatch Address",
     status: "NEW",
     mrpTotal: "7500.00",
+    totalMrp: 7500,
     subtotal: "1500.00",
     savings: "6000.00",
     discount: "150.00",
+    discountAmount: 150,
     transportCharge: "0.00",
-    gstAmount: "243.00",
-    grandTotal: "1593.00",
+    gstAmount: "0.00",
+    grandTotal: "1500.00",
+    totalAmount: 1500,
     createdAt: new Date(),
   };
 
@@ -102,10 +107,32 @@ export function OrderInvoiceView({
           sku: "MYL-FTN-01",
           mrp: "500.00",
           price: "100.00",
+          offerPrice: "100.00",
           quantity: 15,
           lineTotal: "1500.00",
+          total: "1500.00",
         },
       ];
+
+  // Derive robust, infallible totals supporting any backend/localStorage schema
+  const computedItemsMrp = activeItems.reduce((acc, it) => {
+    const mrp = Number(it.mrp || 0) || (Number(it.offerPrice ?? it.price ?? 0) * 2);
+    const qty = Math.max(1, Number(it.quantity || 1));
+    return acc + mrp * qty;
+  }, 0);
+
+  const computedItemsSubtotal = activeItems.reduce((acc, it) => {
+    const offer = Number(it.offerPrice ?? it.price ?? 0);
+    const qty = Math.max(1, Number(it.quantity || 1));
+    return acc + (Number(it.lineTotal ?? it.total) || (offer * qty));
+  }, 0);
+
+  const grossMrp = Number(activeEst.mrpTotal ?? activeEst.totalMrp) || computedItemsMrp;
+  const factorySubtotal = Number(activeEst.subtotal) || computedItemsSubtotal;
+  const couponDiscount = Number(activeEst.discount ?? activeEst.discountAmount ?? 0);
+  const totalSavings = Number(activeEst.savings) || Math.max(0, grossMrp - factorySubtotal + couponDiscount);
+  const gstAmount = Number(activeEst.gstAmount ?? 0) || (factorySubtotal >= 50000 ? Math.round((factorySubtotal - couponDiscount) * 0.18) : 0);
+  const grandTotal = Number(activeEst.grandTotal ?? activeEst.totalAmount) || (factorySubtotal - couponDiscount + gstAmount);
 
   const stageIndex = Math.max(0, STAGES.indexOf(activeEst.status));
 
@@ -118,7 +145,7 @@ export function OrderInvoiceView({
             Order Placed Successfully! 🎉
           </p>
           <p className="text-[14px] font-medium text-slate-700 mt-1">
-            Order Ref <span className="font-bold text-red-600">{activeEst.estimateNumber}</span> — Instant SMS & WhatsApp receipt has been sent to +91 {activeEst.mobile}. Our Sivakasi packing team is preparing your dispatch!
+            Order Ref <span className="font-bold text-red-600">{activeEst.estimateNumber}</span> — Instant SMS & WhatsApp receipt has been sent to +91 {activeEst.mobile || activeEst.customerPhone || "9876543210"}. Our Sivakasi packing team is preparing your dispatch!
           </p>
         </div>
         <Link href="/products" className="btn-gold px-6 py-3 text-[12.5px] uppercase font-bold">
@@ -239,8 +266,8 @@ export function OrderInvoiceView({
           <Block title="Customer Details">
             {activeEst.customerName}
             <br />
-            +91 {activeEst.mobile}
-            {activeEst.email ? <><br />{activeEst.email}</> : null}
+            +91 {activeEst.mobile || activeEst.customerPhone || "9876543210"}
+            {(activeEst.email || activeEst.customerEmail) ? <><br />{activeEst.email || activeEst.customerEmail}</> : null}
             {activeEst.gstNumber ? <><br />GST: {activeEst.gstNumber}</> : null}
           </Block>
           <Block title="Delivery Address">
@@ -307,11 +334,11 @@ export function OrderInvoiceView({
         </div>
 
         <div className="flex flex-col items-end gap-2 border-t border-slate-200 p-8 text-[13.5px]">
-          <Line label="Gross MRP value" value={formatINR(Number(activeEst.mrpTotal))} />
-          <Line label="Factory offer subtotal" value={formatINR(Number(activeEst.subtotal))} />
-          <Line label="Total savings" value={`- ${formatINR(Number(activeEst.savings))}`} accent />
-          {Number(activeEst.discount) > 0 && (
-            <Line label={`Coupon ${activeEst.couponCode ?? ""}`} value={`- ${formatINR(Number(activeEst.discount))}`} accent />
+          <Line label="Gross MRP value" value={formatINR(grossMrp)} />
+          <Line label="Factory offer subtotal" value={formatINR(factorySubtotal)} />
+          <Line label="Total savings" value={`- ${formatINR(totalSavings)}`} accent />
+          {couponDiscount > 0 && (
+            <Line label={`Coupon ${activeEst.couponCode ?? ""}`} value={`- ${formatINR(couponDiscount)}`} accent />
           )}
           <Line
             label="Transport Freight Charge"
@@ -322,14 +349,14 @@ export function OrderInvoiceView({
           </p>
           <Line
             label="GST (18%)"
-            value={Number(activeEst.gstAmount) > 0 ? formatINR(Number(activeEst.gstAmount)) : "₹0 (Applied only for Orders > ₹50,000)"}
+            value={gstAmount > 0 ? formatINR(gstAmount) : "₹0 (Applied only for Orders > ₹50,000)"}
           />
           <div className="mt-3 flex w-full max-w-sm items-center justify-between border-t border-slate-200 pt-3">
             <span className="text-[12px] font-bold uppercase tracking-[2px] text-slate-500 print:text-black">
               Grand Total
             </span>
             <span className="font-display text-[26px] font-bold text-red-600">
-              {formatINR(Number(activeEst.grandTotal))}
+              {formatINR(grandTotal)}
             </span>
           </div>
         </div>
@@ -343,7 +370,7 @@ export function OrderInvoiceView({
       <div className="mt-8">
         <EstimateActions
           estimateNumber={activeEst.estimateNumber}
-          total={formatINR(Number(activeEst.grandTotal))}
+          total={formatINR(grandTotal)}
           items={activeItems.length}
         />
       </div>

@@ -6,7 +6,22 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const orders = await getAllOrders();
-  return ok({ items: orders, total: orders.length });
+  const normalized = orders.map((o: any) => {
+    const totalMrp = Number(o.totalMrp || o.mrpTotal || 0);
+    const subtotal = Number(o.subtotal || 0);
+    const totalAmount = Number(o.totalAmount || o.grandTotal || 0);
+    return {
+      ...o,
+      totalMrp,
+      mrpTotal: totalMrp,
+      subtotal,
+      totalAmount,
+      grandTotal: totalAmount,
+      mobile: o.customerPhone || o.mobile,
+      savings: Number(o.discountAmount || 0) || Math.max(0, totalMrp - subtotal),
+    };
+  });
+  return ok({ items: normalized, total: normalized.length });
 }
 
 export async function POST(req: Request) {
@@ -95,5 +110,13 @@ export async function POST(req: Request) {
     revalidatePath(`/estimate/${estimateNumber}`);
   } catch (e) {}
 
-  return ok({ order: orderRecord, estimateNumber }, "Order placed successfully", 201);
+  const normalizedOrder = {
+    ...orderRecord,
+    mrpTotal: mrpTotalVal,
+    grandTotal: totalAmountVal,
+    savings: Math.max(0, mrpTotalVal - subtotalVal + discountVal),
+    mobile: customerPhone,
+  };
+
+  return ok({ order: normalizedOrder, estimateNumber }, "Order placed successfully", 201);
 }

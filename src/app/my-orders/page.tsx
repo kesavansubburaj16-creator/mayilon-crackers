@@ -240,7 +240,7 @@ export default function MyOrdersPage() {
                           : "Recent Order"}
                       </p>
                       <p className="text-xs font-medium text-slate-600 mt-1">
-                        {ord.customerName} · +91 {ord.mobile}
+                        {ord.customerName} · +91 {ord.mobile || ord.customerPhone}
                       </p>
                     </div>
 
@@ -258,7 +258,7 @@ export default function MyOrdersPage() {
                         Total Amount
                       </p>
                       <p className="font-display text-xl font-extrabold text-red-600 mt-0.5">
-                        {formatINR(Number(ord.grandTotal) || 0)}
+                        {formatINR(Number(ord.grandTotal || ord.totalAmount || 0))}
                       </p>
                       <span className="text-[10.5px] font-bold text-slate-500">
                         {ord.itemCount || (ord.items ? ord.items.length : 1)} Products Ordered

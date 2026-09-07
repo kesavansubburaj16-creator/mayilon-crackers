@@ -49,6 +49,15 @@ function mapOrderToSupabasePayload(order: OrderRecord) {
 /** Helper to convert Supabase row format to OrderRecord */
 function mapSupabaseRowToOrderRecord(row: any): OrderRecord {
   const shipping = row.shipping_address || {};
+  const items = Array.isArray(row.items) ? row.items : [];
+  const calculatedMrp = items.reduce((sum: number, it: any) => {
+    const mrp = Number(it.mrp || 0) || (Number(it.offerPrice ?? it.price ?? 0) * 2);
+    const qty = Math.max(1, Number(it.quantity || 1));
+    return sum + mrp * qty;
+  }, 0);
+  const subtotal = Number(row.subtotal || 0);
+  const totalMrp = Number(row.total_mrp) || calculatedMrp || Number(row.total_amount || 0);
+
   return {
     id: row.id || `ord-${row.order_number || row.estimate_number}`,
     estimateNumber: row.order_number || row.estimate_number,
@@ -59,13 +68,13 @@ function mapSupabaseRowToOrderRecord(row: any): OrderRecord {
     state: shipping.state || row.state || "Tamil Nadu",
     pincode: shipping.pincode || row.pincode || "",
     address: shipping.address || row.address || "",
-    totalMrp: Number(row.total_mrp || row.total_amount || 0),
-    subtotal: Number(row.subtotal || 0),
-    discountAmount: Number(row.discount_amount || 0),
+    totalMrp,
+    subtotal,
+    discountAmount: Number(row.discount_amount || 0) || Math.max(0, totalMrp - subtotal),
     packingCharges: Number(row.packing_charges || 0),
     transportCharges: Number(row.transport_charges || 0),
-    totalAmount: Number(row.total_amount || 0),
-    items: Array.isArray(row.items) ? row.items : [],
+    totalAmount: Number(row.total_amount || subtotal),
+    items,
     status: row.status || "PENDING",
     paymentStatus: row.payment_status || "UNPAID",
     paymentMethod: row.payment_method || "UPI",
