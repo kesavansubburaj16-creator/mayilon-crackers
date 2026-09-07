@@ -864,17 +864,27 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
-                  {["ALL", "NEW", "PAID", "PAYMENT RECEIVED", "PACKAGE READY", "SHIPPED", "DELIVERED"].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setStatusFilter(st)}
-                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors whitespace-nowrap ${
-                        statusFilter === st ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
+                  {["ALL", "NEW", "PAID", "PAYMENT RECEIVED", "PACKAGE READY", "SHIPPED", "DELIVERED"].map((st) => {
+                    const count = st === "ALL"
+                      ? orders.length
+                      : orders.filter((o) => o.status === st || o.paymentStatus === st).length;
+                    return (
+                      <button
+                        key={st}
+                        onClick={() => setStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                          statusFilter === st ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <span>{st}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                          statusFilter === st ? "bg-slate-950/20 text-slate-950" : "bg-slate-700 text-slate-300"
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

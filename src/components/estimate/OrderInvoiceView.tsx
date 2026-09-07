@@ -20,11 +20,56 @@ export function OrderInvoiceView({
   initialEstimate?: any;
   initialItems?: any[];
 }) {
-  const [estimate, setEstimate] = useState<any>(initialEstimate);
-  const [items, setItems] = useState<any[]>(initialItems || []);
+  const [estimate, setEstimate] = useState<any>(() => {
+    if (initialEstimate) return initialEstimate;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(`mayilon_order_${number}`);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [items, setItems] = useState<any[]>(() => {
+    if (initialItems && initialItems.length > 0) return initialItems;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(`mayilon_order_${number}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed?.items) && parsed.items.length > 0) {
+            return parsed.items;
+          }
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
 
   useEffect(() => {
     let timerId: any;
+
+    function recoverFromLocal() {
+      try {
+        const localRaw = localStorage.getItem(`mayilon_order_${number}`);
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          if (parsed) {
+            setEstimate((prev: any) => ({ ...parsed, status: prev?.status || parsed.status }));
+            if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+              setItems(parsed.items);
+            }
+            // Auto re-sync order to server in case serverless container was cold
+            void fetch("/api/v1/estimates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(parsed),
+            }).catch(() => {});
+          }
+        }
+      } catch (lErr) {}
+    }
 
     async function syncLiveStatus() {
       try {
@@ -43,21 +88,13 @@ export function OrderInvoiceView({
           try {
             localStorage.setItem(`mayilon_order_${number}`, JSON.stringify(liveEst));
           } catch (e) {}
+        } else {
+          // If server returned 404 or missing, recover from local storage
+          recoverFromLocal();
         }
       } catch (err) {
         // Fallback to localStorage if offline
-        try {
-          const localRaw = localStorage.getItem(`mayilon_order_${number}`);
-          if (localRaw) {
-            const parsed = JSON.parse(localRaw);
-            if (parsed) {
-              setEstimate((prev: any) => ({ ...parsed, status: prev?.status || parsed.status }));
-              if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-                setItems(parsed.items);
-              }
-            }
-          }
-        } catch (lErr) {}
+        recoverFromLocal();
       }
     }
 

@@ -20,8 +20,8 @@ export type { OrderRecord, ProductRecord };
 function mapOrderToSupabasePayload(order: OrderRecord) {
   return {
     order_number: order.estimateNumber,
-    customer_name: order.customerName,
-    customer_phone: order.customerPhone,
+    customer_name: order.customerName || "Customer",
+    customer_phone: order.customerPhone || "9876543210",
     customer_email: order.customerEmail || null,
     shipping_address: {
       address: order.address,
@@ -96,14 +96,17 @@ export async function saveOrder(order: OrderRecord): Promise<OrderRecord> {
       const payload = mapOrderToSupabasePayload(order);
       const { error } = await supabaseFetch("orders", {
         method: "POST",
+        query: "on_conflict=order_number",
         body: payload,
         prefer: "resolution=merge-duplicates",
       });
 
       if (error) {
+        console.warn("[saveOrder] Supabase orders table error:", error);
         // Try fallback table 'estimates' in case user created schema using alternate name
         await supabaseFetch("estimates", {
           method: "POST",
+          query: "on_conflict=estimate_number",
           body: {
             ...payload,
             estimate_number: order.estimateNumber,
@@ -153,6 +156,17 @@ export async function getOrder(idOrNumber: string): Promise<OrderRecord | null> 
 }
 
 export async function getAllOrders(): Promise<OrderRecord[]> {
+  const allOrdersMap = new Map<string, OrderRecord>();
+
+  // 1. Get from engine memory/disk
+  try {
+    const engineOrders = await getAllOrdersFromEngine();
+    for (const ord of engineOrders) {
+      if (ord?.estimateNumber) allOrdersMap.set(ord.estimateNumber, ord);
+    }
+  } catch (e) {}
+
+  // 2. If Supabase is configured, fetch from Supabase and merge
   if (isSupabaseConfigured()) {
     try {
       const res = await supabaseFetch<any[]>("orders", {
@@ -162,28 +176,30 @@ export async function getAllOrders(): Promise<OrderRecord[]> {
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         const records = res.data.map(mapSupabaseRowToOrderRecord);
         for (const ord of records) {
+          allOrdersMap.set(ord.estimateNumber, ord);
           await saveOrderToEngine(ord);
         }
-        return records;
-      }
-
-      // Fallback table 'estimates'
-      const estRes = await supabaseFetch<any[]>("estimates", {
-        query: "select=*&order=created_at.desc",
-      });
-      if (estRes.data && Array.isArray(estRes.data) && estRes.data.length > 0) {
-        const records = estRes.data.map(mapSupabaseRowToOrderRecord);
-        for (const ord of records) {
-          await saveOrderToEngine(ord);
+      } else {
+        // Fallback table 'estimates'
+        const estRes = await supabaseFetch<any[]>("estimates", {
+          query: "select=*&order=created_at.desc",
+        });
+        if (estRes.data && Array.isArray(estRes.data) && estRes.data.length > 0) {
+          const records = estRes.data.map(mapSupabaseRowToOrderRecord);
+          for (const ord of records) {
+            allOrdersMap.set(ord.estimateNumber, ord);
+            await saveOrderToEngine(ord);
+          }
         }
-        return records;
       }
     } catch (err) {
       console.warn("[getAllOrders] Supabase fetch fallback to engine:", err);
     }
   }
 
-  return getAllOrdersFromEngine();
+  return Array.from(allOrdersMap.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 /**
@@ -194,8 +210,19 @@ export async function updateOrderStatus(
   estimateNumber: string,
   updates: Partial<OrderRecord>
 ): Promise<OrderRecord | null> {
-  const updated = await updateOrderStatusInEngine(estimateNumber, updates);
-  if (!updated) return null;
+  let existing = await getOrder(estimateNumber);
+  if (!existing) {
+    existing = await getOrderFromEngine(estimateNumber);
+  }
+  if (!existing) return null;
+
+  const updated: OrderRecord = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await saveOrderToEngine(updated);
 
   if (isSupabaseConfigured()) {
     try {
