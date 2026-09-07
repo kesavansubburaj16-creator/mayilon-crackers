@@ -1,11 +1,84 @@
 /**
- * Clean data access stub (Supabase removed)
+ * Supabase Client & Data Access Layer
+ * Supports NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY
  */
 
+const SUPABASE_URL = (
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  ""
+).replace(/\/+$/, "");
+
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+
 export function isSupabaseConfigured(): boolean {
-  return false;
+  return Boolean(SUPABASE_URL && (SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY));
 }
 
-export async function supabaseFetch() {
-  return { data: null, error: new Error("Supabase has been removed from this project.") };
+export function getSupabaseCredentials() {
+  return {
+    url: SUPABASE_URL,
+    key: SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY,
+    isServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  };
+}
+
+export async function supabaseFetch<T = any>(
+  table: string,
+  options: {
+    method?: string;
+    query?: string;
+    body?: any;
+    prefer?: string;
+  } = {}
+): Promise<{ data: T | null; error: Error | null }> {
+  if (!isSupabaseConfigured()) {
+    return {
+      data: null,
+      error: new Error("Supabase credentials not configured in environment variables"),
+    };
+  }
+
+  const key = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+  const url = `${SUPABASE_URL}/rest/v1/${table}${options.query ? `?${options.query}` : ""}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+  };
+
+  if (options.prefer) {
+    headers["Prefer"] = options.prefer;
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: options.method || "GET",
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return {
+        data: null,
+        error: new Error(`Supabase HTTP ${res.status}: ${errText}`),
+      };
+    }
+
+    if (res.status === 204) {
+      return { data: null, error: null };
+    }
+
+    const data = await res.json();
+    return { data, error: null };
+  } catch (err: any) {
+    return { data: null, error: err };
+  }
 }

@@ -87,14 +87,14 @@ export function ProductBrowser({
     <div className="grid items-start gap-8 lg:grid-cols-[270px_1fr]">
       <BrowserControls
         categories={categories}
-        total={displayItems.length}
+        total={Math.max(total, displayItems.length)}
         view={view}
         onViewChange={setView}
       />
 
       <div>
         <p className="mb-5 text-[12.5px] font-bold uppercase tracking-[2px] text-slate-500">
-          Showing {displayItems.length} of {displayItems.length} products
+          Showing {displayItems.length} of {Math.max(total, displayItems.length)} products
         </p>
 
         {displayItems.length === 0 && (

@@ -72,6 +72,10 @@ export async function POST(req: Request) {
     revalidatePath("/", "layout");
     revalidatePath("/pricelist");
     revalidatePath("/products");
+    revalidatePath("/estimate");
+    if (productRecord.slug) {
+      revalidatePath(`/products/${productRecord.slug}`);
+    }
   } catch (e) {}
 
   return ok({ product: productRecord }, "Product saved successfully", 201);

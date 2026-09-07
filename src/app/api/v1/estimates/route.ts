@@ -38,10 +38,13 @@ export async function POST(req: Request) {
       sku: String(it.sku || "MYL-PROD"),
       name: String(it.name || "Fireworks Item"),
       packing: String(it.packing || "1 Box"),
+      categoryName: String(it.categoryName || "Special Fireworks"),
       mrp: mrpVal,
       offerPrice: offer,
+      price: offer,
       quantity: qtyVal,
       total: lineTot,
+      lineTotal: lineTot,
       imageUrl: it.imageUrl || "/images/placeholder.jpg",
     };
   });

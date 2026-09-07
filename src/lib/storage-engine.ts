@@ -92,7 +92,27 @@ const DELETED_SET = g.__mayilonDeletedProductIds;
 const REORDER_MAP = g.__mayilonProductOrderMap;
 const SETTINGS_MAP = g.__mayilonSettingsMap;
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+import os from "os";
+
+function resolveDataDir(): string {
+  try {
+    const isServerless = Boolean(
+      process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT
+    );
+    if (isServerless) {
+      return path.join(os.tmpdir(), "mayilon-data");
+    }
+    const localDir = path.join(process.cwd(), ".data");
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    return localDir;
+  } catch {
+    return path.join(os.tmpdir(), "mayilon-data");
+  }
+}
+
+const DATA_DIR = resolveDataDir();
 const STORAGE_FILE = path.join(DATA_DIR, "mayilon_system_storage.json");
 
 const CLOUD_DB_BASE = process.env.CLOUD_DB_URL || "https://mayilon-crackers-default-rtdb.firebaseio.com";
@@ -108,8 +128,14 @@ function ensureStorageFile() {
 function saveToDisk() {
   try {
     ensureStorageFile();
+    const uniqueOrders = new Map<string, OrderRecord>();
+    for (const ord of ORDERS_MAP.values()) {
+      if (ord && ord.estimateNumber) {
+        uniqueOrders.set(ord.estimateNumber, ord);
+      }
+    }
     const payload = {
-      orders: Array.from(ORDERS_MAP.values()),
+      orders: Array.from(uniqueOrders.values()),
       products: Array.from(PRODUCTS_MAP.values()),
       deletedProductIds: Array.from(DELETED_SET),
       reorderMap: Array.from(REORDER_MAP.entries()),
@@ -128,6 +154,7 @@ function loadFromDisk() {
       if (Array.isArray(data.orders)) {
         for (const ord of data.orders) {
           if (ord?.estimateNumber) ORDERS_MAP.set(ord.estimateNumber, ord);
+          if (ord?.id) ORDERS_MAP.set(ord.id, ord);
         }
       }
       if (Array.isArray(data.products)) {

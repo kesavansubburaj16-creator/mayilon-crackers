@@ -524,36 +524,54 @@ export function QuickCalculator({ products }: { products: CalcProduct[] }) {
 /* ------------------------------- FAQ ------------------------------------ */
 
 export function FAQAccordion() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openSet, setOpenSet] = useState<Set<number>>(() => new Set([0]));
+
+  const toggle = (idx: number) => {
+    setOpenSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
+    <div className="mx-auto max-w-3xl space-y-3.5">
       {HOME_FAQS.map((faq, idx) => {
-        const isOpen = openIndex === idx;
+        const isOpen = openSet.has(idx);
         return (
           <div
             key={faq.q}
-            className="glass overflow-hidden rounded-[22px] border border-red-500/15 bg-white shadow-sm transition-all duration-300"
+            className={`glass overflow-hidden rounded-[22px] border transition-all duration-300 ${
+              isOpen
+                ? "border-red-500/30 bg-white shadow-md ring-1 ring-red-500/10"
+                : "border-red-500/15 bg-white/90 shadow-sm hover:border-red-500/30"
+            }`}
           >
             <button
-              onClick={() => setOpenIndex(isOpen ? null : idx)}
-              className="flex w-full items-center justify-between p-5 text-left text-[15px] font-bold text-slate-900"
+              onClick={() => toggle(idx)}
+              className="flex w-full items-center justify-between p-5 text-left text-[15px] font-bold text-slate-900 gap-4"
+              aria-expanded={isOpen}
             >
-              <span>{faq.q}</span>
-              <ChevronDown
-                size={18}
-                className={`text-red-600 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-              />
+              <span className="flex-1">{faq.q}</span>
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${
+                  isOpen ? "bg-red-600 text-white rotate-180" : "bg-red-50 text-red-600"
+                }`}
+              >
+                <ChevronDown size={16} />
+              </span>
             </button>
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
               {isOpen && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
                 >
-                  <p className="border-t border-slate-100 p-5 pt-3 text-[14px] leading-relaxed text-slate-600">
+                  <p className="border-t border-slate-100 p-5 pt-3 text-[14px] leading-relaxed text-slate-600 font-medium">
                     {faq.a}
                   </p>
                 </motion.div>

@@ -9,7 +9,13 @@ import { SITE, waLink } from "@/lib/slug";
 export default function PriceListPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [todayDate, setTodayDate] = useState("");
+  const [todayDate, setTodayDate] = useState(() => {
+    try {
+      return new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+    } catch {
+      return "September 2026";
+    }
+  });
 
   async function deleteProduct(item: any) {
     if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
@@ -24,10 +30,20 @@ export default function PriceListPage() {
   }
 
   useEffect(() => {
-    setTodayDate(new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }));
+    try {
+      setTodayDate(new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }));
+    } catch {}
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     async function load() {
       try {
-        const res = await fetch(`/api/v1/products?limit=300&t=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+        const res = await fetch(`/api/v1/products?limit=300&t=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
         const json = await res.json();
         let list = json?.data?.items || [];
         
@@ -46,14 +62,22 @@ export default function PriceListPage() {
           }
         } catch (err) {}
 
-        setProducts(list);
+        if (Array.isArray(list) && list.length > 0) {
+          setProducts(list);
+        }
       } catch (err) {
         console.error("Failed to load price list:", err);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
-    load();
+    void load();
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handlePrint = () => {

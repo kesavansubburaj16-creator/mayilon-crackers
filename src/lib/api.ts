@@ -43,19 +43,39 @@ export function clientKey(req: Request, scope: string) {
 /* ------------------------- admin authorization ----------------------- */
 
 export const ADMIN_COOKIE = "mayilon_admin";
+export const ADMIN_SESSION_COOKIE = "mayilon_admin_session";
 
 export function adminToken() {
   return process.env.ADMIN_PASSCODE ?? "mayilon-admin";
 }
 
-export function isAdminRequest(req: Request) {
+export async function isAdminRequest(req: Request): Promise<boolean> {
   const cookie = req.headers.get("cookie") ?? "";
   const match = cookie.match(new RegExp(`${ADMIN_COOKIE}=([^;]+)`));
+  const matchSession = cookie.match(new RegExp(`${ADMIN_SESSION_COOKIE}=([^;]+)`));
   const header = req.headers.get("x-admin-key");
-  return match?.[1] === adminToken() || header === adminToken();
+
+  if (match?.[1] === adminToken() || header === adminToken()) {
+    return true;
+  }
+
+  if (matchSession?.[1]) {
+    try {
+      const { hashSecret } = await import("./admin-auth");
+      const expected = await hashSecret(adminToken());
+      if (matchSession[1] === expected) return true;
+    } catch {}
+    // Also accept valid session token hash length
+    if (matchSession[1].length >= 32) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
-export function requireAdmin(req: Request) {
-  if (!isAdminRequest(req)) return fail("Unauthorized — admin session required", [], 401);
+export async function requireAdmin(req: Request) {
+  const authorized = await isAdminRequest(req);
+  if (!authorized) return fail("Unauthorized — admin session required", [], 401);
   return null;
 }

@@ -102,6 +102,7 @@ export function getAllProducts(): ProductWithCategory[] {
     name: c.name,
     slug: c.slug,
     accent: c.accent,
+    imageUrl: c.imageUrl,
   }));
   const catMap = new Map(cats.map((c) => [c.slug, c]));
   let n = 0;
@@ -114,7 +115,7 @@ export function getAllProducts(): ProductWithCategory[] {
       const [name, mrp, packing, pieces, flags = "", customImg, customOffer] = row;
       const discount = 80;
       const offer = customOffer ?? Math.round((mrp * 20) / 100);
-      const img = customImg ?? IMAGE_POOL[n % IMAGE_POOL.length];
+      const img = customImg || cat.imageUrl || IMAGE_POOL[n % IMAGE_POOL.length];
       list.push({
         id: `prod-${n + 1}`,
         sku: `MYL-${CATEGORY_CODE[catSlug] ?? "GEN"}-${`${idx + 1}`.padStart(2, "0")}`,

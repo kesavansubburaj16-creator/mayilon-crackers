@@ -300,8 +300,11 @@ export default function AdminDashboardPage() {
 
   const loadData = useCallback(async () => {
     try {
-      // 1. Fetch Orders
-      const estRes = await fetch("/api/v1/estimates");
+      // 1. Fetch Orders with cache-busting
+      const estRes = await fetch(`/api/v1/estimates?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const estJson = await estRes.json().catch(() => ({}));
       let loadedOrders: Order[] = [];
       const rawOrders = Array.isArray(estJson.data?.items)
@@ -330,6 +333,63 @@ export default function AdminDashboardPage() {
         createdAt: item.createdAt || item.created_at || new Date().toISOString(),
         items: Array.isArray(item.items) ? item.items : [],
       }));
+
+      // Scan for any client-side cached order backups (preventing data loss if serverless container was cold)
+      if (typeof window !== "undefined") {
+        try {
+          const localBackups: any[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith("mayilon_order_") || k === "mayilon_recent_orders")) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) localBackups.push(...parsed);
+                else if (parsed && parsed.estimateNumber) localBackups.push(parsed);
+              }
+            }
+          }
+          if (localBackups.length > 0) {
+            const existingNums = new Set(loadedOrders.map((o) => o.estimateNumber));
+            for (const bk of localBackups) {
+              if (bk && bk.estimateNumber && !existingNums.has(bk.estimateNumber)) {
+                existingNums.add(bk.estimateNumber);
+                const recovered: Order = {
+                  id: String(bk.id || bk.estimateNumber),
+                  estimateNumber: String(bk.estimateNumber).trim(),
+                  customerName: String(bk.customerName || "Customer").trim(),
+                  mobile: String(bk.mobile || bk.customerPhone || "").trim(),
+                  email: String(bk.email || bk.customerEmail || "").trim(),
+                  state: String(bk.state || "").trim(),
+                  district: String(bk.district || bk.city || "").trim(),
+                  city: String(bk.city || "").trim(),
+                  pincode: String(bk.pincode || "").trim(),
+                  address: String(bk.address || "").trim(),
+                  paymentMethod: String(bk.paymentMethod || "UPI"),
+                  paymentStatus: String(bk.paymentStatus || "UNPAID"),
+                  status: String(bk.status || "NEW"),
+                  itemCount: Array.isArray(bk.items) ? bk.items.length : 0,
+                  mrpTotal: Number(bk.mrpTotal || bk.totalMrp || 0),
+                  subtotal: Number(bk.subtotal || 0),
+                  grandTotal: Number(bk.grandTotal || bk.totalAmount || 0),
+                  createdAt: bk.createdAt || new Date().toISOString(),
+                  items: Array.isArray(bk.items) ? bk.items : [],
+                };
+                loadedOrders.push(recovered);
+                // Background re-sync recovered order to backend
+                void fetch("/api/v1/estimates", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(bk),
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (backupErr) {
+          console.warn("[Admin] Local backup merge note:", backupErr);
+        }
+      }
+
       setOrders(loadedOrders);
 
       // Calculate live dynamic KPIs directly from loaded orders
@@ -470,6 +530,7 @@ export default function AdminDashboardPage() {
   }
 
   async function updateOrderStatus(estimateNumber: string, status: string, paymentStatus?: string) {
+    // Optimistically update current view immediately
     setOrders((prev) =>
       prev.map((o) =>
         o.estimateNumber === estimateNumber
@@ -485,16 +546,61 @@ export default function AdminDashboardPage() {
     const body: Record<string, any> = { status };
     if (paymentStatus) body.paymentStatus = paymentStatus;
 
-    await fetch(`/api/v1/estimates/${estimateNumber}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch(`/api/v1/estimates/${encodeURIComponent(estimateNumber)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    const msg = `✓ Updated Order ${estimateNumber} to status [${status}]`;
-    setNotificationToast(msg);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        console.warn("[updateOrderStatus] Server update note:", json);
+      }
+
+      // Update client-side backup so even on cold lambda restarts the order retains its latest status
+      try {
+        const localKey = `mayilon_order_${estimateNumber}`;
+        const raw = localStorage.getItem(localKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          parsed.status = status;
+          if (paymentStatus) parsed.paymentStatus = paymentStatus;
+          localStorage.setItem(localKey, JSON.stringify(parsed));
+        }
+      } catch (e) {}
+
+      const msg = `✓ Updated Order ${estimateNumber} to status [${status}]`;
+      setNotificationToast(msg);
+      setTimeout(() => setNotificationToast(null), 4000);
+      await loadData();
+    } catch (err) {
+      console.error("[updateOrderStatus] Error updating order:", err);
+      setNotificationToast(`Notice: Status updated locally to [${status}]`);
+      setTimeout(() => setNotificationToast(null), 4000);
+    }
+  }
+
+  function exportDatabaseBackup() {
+    const backupData = {
+      backupDate: new Date().toISOString(),
+      orders,
+      products,
+      kpis,
+      exportVersion: "2026.1",
+    };
+    const jsonStr = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Mayilon_Database_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setNotificationToast("✓ Complete Database Backup Exported successfully (JSON)!");
     setTimeout(() => setNotificationToast(null), 4000);
-    await loadData();
   }
 
   function openEditModal(p: Product) {
@@ -617,6 +723,14 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={exportDatabaseBackup}
+            className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl transition-colors"
+            title="Download full database backup snapshot as JSON"
+          >
+            <Download className="w-3.5 h-3.5" /> Backup DB
+          </button>
+
           <button
             onClick={() => void loadData()}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"

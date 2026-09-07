@@ -6,7 +6,7 @@ import { saveProductReorder } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin(req);
   if (unauthorized) return unauthorized;
 
   const body = await req.json().catch(() => ({}));

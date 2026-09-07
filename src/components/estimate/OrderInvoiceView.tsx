@@ -272,26 +272,36 @@ export function OrderInvoiceView({
               </tr>
             </thead>
             <tbody>
-              {activeItems.map((it, i) => (
-                <tr key={it.id || i} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-8 py-3.5 font-medium text-slate-400 print:text-black">{i + 1}</td>
-                  <td className="py-3.5">
-                    <p className="font-bold text-slate-900 print:text-black">{it.name}</p>
-                    <p className="text-[11.5px] font-medium text-slate-500 print:text-black">
-                      {it.categoryName} · {it.packing}
-                    </p>
-                  </td>
-                  <td className="py-3.5 font-medium text-slate-600 print:text-black">{it.sku}</td>
-                  <td className="py-3.5 text-right text-slate-400 line-through print:text-black">
-                    {formatINR(Number(it.mrp))}
-                  </td>
-                  <td className="py-3.5 text-right font-bold text-red-600">{formatINR(Number(it.price))}</td>
-                  <td className="py-3.5 text-center font-bold text-slate-900 print:text-black">{it.quantity}</td>
-                  <td className="px-8 py-3.5 text-right font-bold text-slate-900 print:text-black">
-                    {formatINR(Number(it.lineTotal || Number(it.price) * Number(it.quantity)))}
-                  </td>
-                </tr>
-              ))}
+              {activeItems.map((it, i) => {
+                const mrpVal = Number(it.mrp || 0);
+                const offerVal =
+                  Number(it.offerPrice ?? it.price ?? 0) ||
+                  (mrpVal > 0 ? Math.round(mrpVal * 0.2) : 0);
+                const qtyVal = Math.max(1, Number(it.quantity || 1));
+                const lineTotalVal =
+                  Number(it.lineTotal ?? it.total ?? 0) || (offerVal * qtyVal);
+
+                return (
+                  <tr key={it.id || i} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="px-8 py-3.5 font-medium text-slate-400 print:text-black">{i + 1}</td>
+                    <td className="py-3.5">
+                      <p className="font-bold text-slate-900 print:text-black">{it.name}</p>
+                      <p className="text-[11.5px] font-medium text-slate-500 print:text-black">
+                        {it.categoryName || "Fireworks"} · {it.packing || "1 Box"}
+                      </p>
+                    </td>
+                    <td className="py-3.5 font-medium text-slate-600 print:text-black">{it.sku || "MYL-PROD"}</td>
+                    <td className="py-3.5 text-right text-slate-400 line-through print:text-black">
+                      {formatINR(mrpVal)}
+                    </td>
+                    <td className="py-3.5 text-right font-bold text-red-600">{formatINR(offerVal)}</td>
+                    <td className="py-3.5 text-center font-bold text-slate-900 print:text-black">{qtyVal}</td>
+                    <td className="px-8 py-3.5 text-right font-bold text-slate-900 print:text-black">
+                      {formatINR(lineTotalVal)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
