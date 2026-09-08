@@ -139,6 +139,61 @@ export default function AdminDashboardPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  const CATEGORY_CODE_MAP: Record<string, string> = {
+    "kids-special": "KDS",
+    "single-sound": "SND",
+    "short-items": "SND",
+    "bijili-crackers": "BJL",
+    "ground-chakkar": "GCK",
+    "ground-chakkars": "GCK",
+    "twinkling-star": "TWN",
+    "flower-pots": "FLP",
+    candles: "PNC",
+    rockets: "RKT",
+    bombs: "BMB",
+    fountains: "FTN",
+    "sky-shots": "SKY",
+    "multi-shots": "MLT",
+    sparklers: "SPK",
+    novelties: "NVL",
+    "gift-boxes": "GFT",
+  };
+
+  function getCodeForProduct(sku?: string, categoryName?: string): string {
+    if (sku && sku.startsWith("MYL-")) {
+      const parts = sku.split("-");
+      if (parts.length >= 2 && parts[1] && parts[1].length >= 2) {
+        return parts[1].toUpperCase();
+      }
+    }
+    const slug = (categoryName || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (slug && CATEGORY_CODE_MAP[slug]) {
+      return CATEGORY_CODE_MAP[slug];
+    }
+    if (categoryName) {
+      const clean = categoryName.trim().toUpperCase().replace(/[^A-Z]/g, "");
+      return clean.slice(0, 3) || "GEN";
+    }
+    return "GEN";
+  }
+
+  function recalculateProductSkus(list: Product[]): Product[] {
+    const categoryCounters: Record<string, number> = {};
+    return list.map((p) => {
+      const code = getCodeForProduct(p.sku, p.categoryName);
+      categoryCounters[code] = (categoryCounters[code] || 0) + 1;
+      const seq = String(categoryCounters[code]).padStart(2, "0");
+      const newSku = `MYL-${code}-${seq}`;
+      return {
+        ...p,
+        sku: newSku,
+      };
+    });
+  }
+
   function handleDragStart(e: React.DragEvent, index: number) {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
@@ -169,20 +224,31 @@ export default function AdminDashboardPage() {
     const [draggedItem] = updated.splice(draggedIndex, 1);
     updated.splice(dropIndex, 0, draggedItem);
 
-    setProducts(updated);
+    // Instant SKU recalculation according to new sequence position
+    const renumbered = recalculateProductSkus(updated);
+    setProducts(renumbered);
     setDraggedIndex(null);
     setDragOverIndex(null);
 
-    const items = updated.map((p) => ({
+    const renumberedDraggedItem = renumbered[dropIndex];
+    const newSku = renumberedDraggedItem?.sku || "";
+
+    const items = renumbered.map((p) => ({
       id: p.id,
       sku: p.sku,
+      previousSku: p.sku,
       name: p.name,
+      categoryName: p.categoryName,
     }));
-    const orderIds = updated.map((p) => p.id || p.sku);
+    const orderIds = renumbered.map((p) => p.id || p.sku);
 
     try {
       if (typeof window !== "undefined") {
         localStorage.setItem("mayilon_local_reorder_cache", JSON.stringify(orderIds));
+        localStorage.setItem(
+          "mayilon_local_sku_cache",
+          JSON.stringify(Object.fromEntries(renumbered.map((p) => [p.id, p.sku])))
+        );
       }
     } catch (err) {}
 
@@ -212,7 +278,7 @@ export default function AdminDashboardPage() {
         }));
         setProducts(reordered);
       }
-      setNotificationToast(`✓ Moved "${draggedItem.name}" to position #${dropIndex + 1} & saved permanently!`);
+      setNotificationToast(`✓ Moved "${draggedItem.name}" to position #${dropIndex + 1} & updated SKU to ${newSku}!`);
       setTimeout(() => setNotificationToast(null), 3500);
     } catch (err) {
       console.error("Reorder failed", err);
@@ -226,18 +292,30 @@ export default function AdminDashboardPage() {
     const temp = updated[index];
     updated[index] = updated[newIdx];
     updated[newIdx] = temp;
-    setProducts(updated);
 
-    const items = updated.map((p) => ({
+    // Instant SKU recalculation according to new sequence position
+    const renumbered = recalculateProductSkus(updated);
+    setProducts(renumbered);
+
+    const movedItem = renumbered[newIdx];
+    const newSku = movedItem?.sku || "";
+
+    const items = renumbered.map((p) => ({
       id: p.id,
       sku: p.sku,
+      previousSku: p.sku,
       name: p.name,
+      categoryName: p.categoryName,
     }));
-    const orderIds = updated.map((p) => p.id || p.sku);
+    const orderIds = renumbered.map((p) => p.id || p.sku);
 
     try {
       if (typeof window !== "undefined") {
         localStorage.setItem("mayilon_local_reorder_cache", JSON.stringify(orderIds));
+        localStorage.setItem(
+          "mayilon_local_sku_cache",
+          JSON.stringify(Object.fromEntries(renumbered.map((p) => [p.id, p.sku])))
+        );
       }
     } catch (err) {}
 
@@ -267,7 +345,7 @@ export default function AdminDashboardPage() {
         }));
         setProducts(reordered);
       }
-      setNotificationToast(`✓ Product sequence updated successfully!`);
+      setNotificationToast(`✓ Moved "${movedItem.name}" to position #${newIdx + 1} & updated SKU to ${newSku}!`);
       setTimeout(() => setNotificationToast(null), 3000);
     } catch (e) {
       console.error("Reorder failed", e);
@@ -496,6 +574,7 @@ export default function AdminDashboardPage() {
                   const posB = orderMap.get(b.id) ?? orderMap.get(b.sku) ?? orderMap.get(b.name) ?? 999999;
                   return posA - posB;
                 });
+                mapped = recalculateProductSkus(mapped);
               }
             }
           }

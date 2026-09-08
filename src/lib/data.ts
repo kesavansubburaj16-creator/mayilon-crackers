@@ -1,12 +1,14 @@
 import { IMAGE_POOL, SEED_CATEGORIES, SEED_PRODUCTS, SEED_REVIEWS } from "./seed-data";
 import { slugify } from "./slug";
-import { getAllCustomProducts, getDeletedProductIds, getProductReorderMap } from "./db";
+import { getAllCustomProducts, getDeletedProductIds, getProductReorderMap, getProductSkuOverrideMap } from "./db";
 
-const CATEGORY_CODE: Record<string, string> = {
+export const CATEGORY_CODE: Record<string, string> = {
   "kids-special": "KDS",
   "single-sound": "SND",
+  "short-items": "SND",
   "bijili-crackers": "BJL",
   "ground-chakkar": "GCK",
+  "ground-chakkars": "GCK",
   "twinkling-star": "TWN",
   "flower-pots": "FLP",
   candles: "PNC",
@@ -19,6 +21,24 @@ const CATEGORY_CODE: Record<string, string> = {
   novelties: "NVL",
   "gift-boxes": "GFT",
 };
+
+export function getProductCategoryCode(sku?: string, categoryName?: string, categorySlug?: string): string {
+  if (sku && sku.startsWith("MYL-")) {
+    const parts = sku.split("-");
+    if (parts.length >= 2 && parts[1] && parts[1].length >= 2) {
+      return parts[1].toUpperCase();
+    }
+  }
+  const slug = categorySlug || (categoryName ? slugify(categoryName) : "");
+  if (slug && CATEGORY_CODE[slug]) {
+    return CATEGORY_CODE[slug];
+  }
+  if (categoryName) {
+    const clean = categoryName.trim().toUpperCase().replace(/[^A-Z]/g, "");
+    return clean.slice(0, 3) || "GEN";
+  }
+  return "GEN";
+}
 
 const EFFECTS = ["Gold", "Red", "Blue", "Green", "Silver", "Purple"];
 
@@ -231,21 +251,40 @@ export function getAllProducts(): ProductWithCategory[] {
   if (reorderMap && reorderMap.size > 0) {
     filtered.sort((a, b) => {
       const posA =
-        (a.sku ? reorderMap.get(a.sku) : undefined) ??
         (a.id ? reorderMap.get(a.id) : undefined) ??
-        (a.slug ? reorderMap.get(a.slug) : undefined) ??
         (a.name ? reorderMap.get(a.name) : undefined) ??
+        (a.slug ? reorderMap.get(a.slug) : undefined) ??
+        (a.sku ? reorderMap.get(a.sku) : undefined) ??
         (a.name ? reorderMap.get(slugify(a.name)) : undefined) ??
         999999;
       const posB =
-        (b.sku ? reorderMap.get(b.sku) : undefined) ??
         (b.id ? reorderMap.get(b.id) : undefined) ??
-        (b.slug ? reorderMap.get(b.slug) : undefined) ??
         (b.name ? reorderMap.get(b.name) : undefined) ??
+        (b.slug ? reorderMap.get(b.slug) : undefined) ??
+        (b.sku ? reorderMap.get(b.sku) : undefined) ??
         (b.name ? reorderMap.get(slugify(b.name)) : undefined) ??
         999999;
       return posA - posB;
     });
+  }
+
+  // Automatic SKU Re-numbering & Synchronization based on exact sequence order
+  const skuOverrideMap = getProductSkuOverrideMap();
+  if ((reorderMap && reorderMap.size > 0) || (skuOverrideMap && skuOverrideMap.size > 0)) {
+    const categoryCounters: Record<string, number> = {};
+    for (let i = 0; i < filtered.length; i++) {
+      const p = filtered[i];
+      const code = getProductCategoryCode(p.sku, p.categoryName, p.categorySlug);
+      categoryCounters[code] = (categoryCounters[code] || 0) + 1;
+      const seq = String(categoryCounters[code]).padStart(2, "0");
+      const calculatedSku = `MYL-${code}-${seq}`;
+
+      const explicitOverride =
+        (p.id ? skuOverrideMap?.get(p.id) : undefined) ??
+        (p.sku ? skuOverrideMap?.get(p.sku) : undefined);
+
+      p.sku = explicitOverride || calculatedSku;
+    }
   }
 
   return filtered;
@@ -343,7 +382,14 @@ export async function getProductsByIds(ids: string[]): Promise<ProductWithCatego
   if (!ids.length) return [];
   const set = new Set(ids);
   const items = getAllProducts();
-  return items.filter((p) => set.has(p.id) || set.has(p.sku));
+  const skuOverrideMap = getProductSkuOverrideMap();
+  return items.filter((p) => {
+    if (set.has(p.id) || set.has(p.sku)) return true;
+    for (const [oldKey, newSku] of skuOverrideMap?.entries() || []) {
+      if (set.has(oldKey) && (p.sku === newSku || p.id === oldKey)) return true;
+    }
+    return false;
+  });
 }
 
 export async function getReviews(limit = 6) {

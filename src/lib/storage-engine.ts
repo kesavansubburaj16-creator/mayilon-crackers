@@ -76,6 +76,7 @@ type GlobalStorage = typeof globalThis & {
   __mayilonCustomProductsMap?: Map<string, ProductRecord>;
   __mayilonDeletedProductIds?: Set<string>;
   __mayilonProductOrderMap?: Map<string, number>;
+  __mayilonSkuOverrideMap?: Map<string, string>;
   __mayilonSettingsMap?: Map<string, any>;
 };
 
@@ -84,12 +85,14 @@ if (!g.__mayilonOrdersMap) g.__mayilonOrdersMap = new Map<string, OrderRecord>()
 if (!g.__mayilonCustomProductsMap) g.__mayilonCustomProductsMap = new Map<string, ProductRecord>();
 if (!g.__mayilonDeletedProductIds) g.__mayilonDeletedProductIds = new Set<string>();
 if (!g.__mayilonProductOrderMap) g.__mayilonProductOrderMap = new Map<string, number>();
+if (!g.__mayilonSkuOverrideMap) g.__mayilonSkuOverrideMap = new Map<string, string>();
 if (!g.__mayilonSettingsMap) g.__mayilonSettingsMap = new Map<string, any>();
 
 const ORDERS_MAP = g.__mayilonOrdersMap;
 const PRODUCTS_MAP = g.__mayilonCustomProductsMap;
 const DELETED_SET = g.__mayilonDeletedProductIds;
 const REORDER_MAP = g.__mayilonProductOrderMap;
+const SKU_OVERRIDE_MAP = g.__mayilonSkuOverrideMap;
 const SETTINGS_MAP = g.__mayilonSettingsMap;
 
 import os from "os";
@@ -139,6 +142,7 @@ function saveToDisk() {
       products: Array.from(PRODUCTS_MAP.values()),
       deletedProductIds: Array.from(DELETED_SET),
       reorderMap: Array.from(REORDER_MAP.entries()),
+      skuOverrideMap: Array.from(SKU_OVERRIDE_MAP.entries()),
       settings: Array.from(SETTINGS_MAP.entries()),
       updatedAt: new Date().toISOString(),
     };
@@ -167,6 +171,9 @@ function loadFromDisk() {
       }
       if (Array.isArray(data.reorderMap)) {
         for (const [k, v] of data.reorderMap) REORDER_MAP.set(k, Number(v));
+      }
+      if (Array.isArray(data.skuOverrideMap)) {
+        for (const [k, v] of data.skuOverrideMap) SKU_OVERRIDE_MAP.set(String(k), String(v));
       }
       if (Array.isArray(data.settings)) {
         for (const [k, v] of data.settings) SETTINGS_MAP.set(k, v);
@@ -286,8 +293,39 @@ export function getDeletedProductIdsFromEngine(): Set<string> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Reorder Sequence Engine                                            */
+/* Reorder Sequence & SKU Engine                                      */
 /* ------------------------------------------------------------------ */
+
+export async function syncCatalogSequenceFromCloud(): Promise<void> {
+  try {
+    const res = await fetch(`${CLOUD_DB_BASE}/settings/catalog_sequence.json`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data === "object") {
+      if (Array.isArray(data.reorderMap)) {
+        for (const [k, v] of data.reorderMap) REORDER_MAP.set(String(k), Number(v));
+      }
+      if (Array.isArray(data.skuOverrideMap)) {
+        for (const [k, v] of data.skuOverrideMap) SKU_OVERRIDE_MAP.set(String(k), String(v));
+      }
+      saveToDisk();
+    }
+  } catch (err) {}
+}
+
+export async function syncCatalogSequenceToCloud(): Promise<void> {
+  try {
+    await fetch(`${CLOUD_DB_BASE}/settings/catalog_sequence.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reorderMap: Array.from(REORDER_MAP.entries()),
+        skuOverrideMap: Array.from(SKU_OVERRIDE_MAP.entries()),
+        updatedAt: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {}
+}
 
 export function saveProductReorderToEngine(itemsOrIds: any[]): void {
   if (!Array.isArray(itemsOrIds)) return;
@@ -300,12 +338,34 @@ export function saveProductReorderToEngine(itemsOrIds: any[]): void {
       if (item.id) REORDER_MAP.set(String(item.id), idx);
       if (item.slug) REORDER_MAP.set(String(item.slug), idx);
       if (item.name) REORDER_MAP.set(String(item.name), idx);
+      if (item.previousSku) REORDER_MAP.set(String(item.previousSku), idx);
+
+      // Record SKU overrides
+      if (item.id && item.sku) {
+        SKU_OVERRIDE_MAP.set(String(item.id), String(item.sku));
+      }
+      if (item.previousSku && item.sku) {
+        SKU_OVERRIDE_MAP.set(String(item.previousSku), String(item.sku));
+      }
+
+      // If custom product exists in PRODUCTS_MAP, update its sku directly
+      if (item.id && PRODUCTS_MAP.has(String(item.id))) {
+        const existing = PRODUCTS_MAP.get(String(item.id))!;
+        existing.sku = String(item.sku);
+        PRODUCTS_MAP.set(String(item.id), existing);
+      }
     }
   });
   saveToDisk();
+  void syncCatalogSequenceToCloud();
 }
 
 export function getProductReorderMapFromEngine(): Map<string, number> {
   loadFromDisk();
   return REORDER_MAP;
+}
+
+export function getProductSkuOverrideMapFromEngine(): Map<string, string> {
+  loadFromDisk();
+  return SKU_OVERRIDE_MAP;
 }

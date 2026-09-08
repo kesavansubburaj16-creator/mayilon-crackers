@@ -9,6 +9,7 @@ import {
   getDeletedProductIdsFromEngine,
   saveProductReorderToEngine,
   getProductReorderMapFromEngine,
+  getProductSkuOverrideMapFromEngine,
   type OrderRecord,
   type ProductRecord,
 } from "./storage-engine";
@@ -264,4 +265,5 @@ export {
   getDeletedProductIdsFromEngine as getDeletedProductIds,
   saveProductReorderToEngine as saveProductReorder,
   getProductReorderMapFromEngine as getProductReorderMap,
+  getProductSkuOverrideMapFromEngine as getProductSkuOverrideMap,
 };

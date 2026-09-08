@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     revalidatePath("/", "layout");
     revalidatePath("/pricelist");
     revalidatePath("/products");
+    revalidatePath("/estimate");
   } catch (e) {}
 
   const { items: sortedProducts } = await getProducts({ limit: 250 });
