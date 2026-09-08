@@ -39,18 +39,10 @@ export function ProductBrowser({
         const json = await res.json();
         let apiItems = json?.data?.items || [];
 
-        // Only append custom items from local storage that are NOT in apiItems
+        // Clean up any stale client local storage overrides to ensure Single Source of Truth
         try {
-          const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
-          if (localRaw) {
-            const customArr = JSON.parse(localRaw);
-            if (Array.isArray(customArr) && customArr.length > 0) {
-              const existingSkus = new Set(apiItems.map((p: any) => p.sku || p.id));
-              const extraCustom = customArr.filter((c: any) => c && c.sku && !existingSkus.has(c.sku) && !existingSkus.has(c.id));
-              if (extraCustom.length > 0) {
-                apiItems = [...apiItems, ...extraCustom];
-              }
-            }
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mayilon_custom_products");
           }
         } catch (lErr) {}
 

@@ -861,12 +861,37 @@ export default function AdminDashboardPage() {
     const newPrice = parseFloat(editingPrice) || 100;
     const newMrp = parseFloat(editingMrp) || newPrice;
     const newStock = parseInt(editingStock) || 500;
+    const targetId = editingProduct?.id;
+    const targetSku = editingSku || editingProduct?.sku || `MYL-PROD-${Date.now()}`;
+
+    // Optimistically update products table view immediately
+    setProducts((prev) =>
+      prev.map((p) =>
+        (targetId && p.id === targetId) || p.sku === targetSku
+          ? {
+              ...p,
+              name: editingName,
+              nameTa: editingNameTa,
+              categoryName: editingCategoryName || p.categoryName,
+              packing: editingPacking || p.packing,
+              imageUrl: editingImageUrl || p.imageUrl,
+              imageUrl2: editingImageUrl2 || p.imageUrl2,
+              imageUrl3: editingImageUrl3 || p.imageUrl3,
+              videoUrl: editingVideoUrl || p.videoUrl,
+              mrp: newMrp,
+              offerPrice: newPrice,
+              stock: newStock,
+            }
+          : p,
+      ),
+    );
 
     await fetch("/api/v1/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sku: editingSku || `MYL-PROD-${Date.now()}`,
+        id: targetId,
+        sku: targetSku,
         name: editingName,
         nameTa: editingNameTa,
         categoryName: editingCategoryName || "Special Fireworks",
@@ -881,9 +906,15 @@ export default function AdminDashboardPage() {
       }),
     });
 
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("mayilon_custom_products");
+      } catch (e) {}
+    }
+
     setEditingProduct(null);
     setIsAddingNewProduct(false);
-    setNotificationToast(`Product [${editingName}] saved directly to System DB!`);
+    setNotificationToast(`✓ Product [${editingName}] updated to ₹${newPrice} and synced!`);
     setTimeout(() => setNotificationToast(null), 4000);
     void loadData();
   }

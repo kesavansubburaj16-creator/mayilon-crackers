@@ -279,8 +279,37 @@ export async function deleteOrder(idOrNumber: string): Promise<boolean> {
   return true;
 }
 
+export async function saveProduct(prod: ProductRecord): Promise<ProductRecord> {
+  saveProductToEngine(prod);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const payload = {
+        sku: prod.sku,
+        title: prod.name,
+        price: prod.offerPrice,
+        compare_at_price: prod.mrp,
+        stock_quantity: prod.stock || 100,
+        category: prod.categoryName || "Special Fireworks",
+        status: prod.status || "ACTIVE",
+        updated_at: new Date().toISOString(),
+      };
+      await supabaseFetch("products", {
+        method: "POST",
+        query: "on_conflict=sku",
+        body: payload,
+        prefer: "resolution=merge-duplicates",
+      });
+    } catch (err) {
+      console.warn("[saveProduct] Supabase product sync note:", err);
+    }
+  }
+
+  return prod;
+}
+
 export {
-  saveProductToEngine as saveProduct,
+  saveProduct,
   getAllCustomProductsFromEngine as getAllCustomProducts,
   deleteProductFromEngine as deleteProduct,
   getDeletedProductIdsFromEngine as getDeletedProductIds,

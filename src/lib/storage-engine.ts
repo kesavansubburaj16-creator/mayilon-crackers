@@ -283,6 +283,15 @@ export async function deleteOrderFromEngine(idOrNumber: string): Promise<boolean
 
 export function saveProductToEngine(prod: ProductRecord): ProductRecord {
   DELETED_SET.delete(prod.id);
+  if (prod.sku) DELETED_SET.delete(prod.sku);
+
+  // If there's an existing item with the same SKU or name, purge old ID to prevent duplication
+  for (const [existingId, existing] of PRODUCTS_MAP.entries()) {
+    if (existing.sku === prod.sku || (prod.name && existing.name.toLowerCase() === prod.name.toLowerCase())) {
+      PRODUCTS_MAP.delete(existingId);
+    }
+  }
+
   PRODUCTS_MAP.set(prod.id, prod);
   saveToDisk();
   return prod;

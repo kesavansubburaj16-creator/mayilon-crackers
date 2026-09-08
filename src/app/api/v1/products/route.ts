@@ -25,7 +25,9 @@ export async function GET(req: Request) {
   });
 
   const res = ok({ items, total });
-  res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+  res.headers.set("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate");
+  res.headers.set("Pragma", "no-cache");
+  res.headers.set("Expires", "0");
   return res;
 }
 
@@ -68,13 +70,14 @@ export async function POST(req: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  saveProduct(productRecord);
+  await saveProduct(productRecord);
 
   try {
     revalidatePath("/", "layout");
     revalidatePath("/pricelist");
     revalidatePath("/products");
     revalidatePath("/estimate");
+    revalidatePath("/admin");
     if (productRecord.slug) {
       revalidatePath(`/products/${productRecord.slug}`);
     }
@@ -105,6 +108,8 @@ export async function DELETE(req: Request) {
     revalidatePath("/", "layout");
     revalidatePath("/pricelist");
     revalidatePath("/products");
+    revalidatePath("/estimate");
+    revalidatePath("/admin");
   } catch (e) {}
 
   return ok({ id: target }, "Product deleted successfully");

@@ -47,18 +47,10 @@ export default function PriceListPage() {
         const json = await res.json();
         let list = json?.data?.items || [];
         
-        // Only append custom items from local storage that are NOT in list
+        // Clean up any stale client local storage overrides to ensure Single Source of Truth
         try {
-          const localRaw = typeof window !== "undefined" ? localStorage.getItem("mayilon_custom_products") : null;
-          if (localRaw) {
-            const localProds = JSON.parse(localRaw);
-            if (Array.isArray(localProds) && localProds.length > 0) {
-              const existingSkus = new Set(list.map((p: any) => p.sku || p.id));
-              const extraCustom = localProds.filter((c: any) => c && c.sku && !existingSkus.has(c.sku) && !existingSkus.has(c.id));
-              if (extraCustom.length > 0) {
-                list = [...list, ...extraCustom];
-              }
-            }
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mayilon_custom_products");
           }
         } catch (err) {}
 

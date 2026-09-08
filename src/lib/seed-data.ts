@@ -181,7 +181,7 @@ export const SEED_PRODUCTS: Record<string, [string, number, string, number, stri
     ["Little Simba", 1300, "1 Box (3 Pcs)", 3, "B", undefined, 260],
     ["Magical Unicorn", 1350, "1 Box (2 Pcs)", 2, "F", undefined, 270],
     ["Drone", 775, "1 Box (5 Pcs)", 5, "F", undefined, 155],
-    ["Insta Selfie", 675, "1 Box (5 Pcs)", 5, "F", undefined, 135],
+    ["Insta Selfie", 675, "1 Box (5 Pcs)", 5, "F", undefined, 140],
     ["Pink Nova", 1300, "1 Box (2 Pcs)", 2, "N", undefined, 260],
     ["Violet Nebula", 1350, "1 Box (2 Pcs)", 2, "N", undefined, 270],
     ["Pocket / Lima / Jazz Stars", 500, "1 Box (5 Pcs)", 5, "B", undefined, 100],
