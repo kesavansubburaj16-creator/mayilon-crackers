@@ -468,9 +468,70 @@ export default function AdminDashboardPage() {
         }
       }
 
-      setOrders(loadedOrders);
+      // Dual-tier non-destructive state retention:
+      // Orders are NEVER deleted or overwritten by a partial/empty server response
+      let finalOrdersList: Order[] = [];
+      setOrders((prev) => {
+        const mergedMap = new Map<string, Order>();
 
-      // Calculate live dynamic KPIs directly from loaded orders
+        // 1. Incorporate local permanent admin cache
+        if (typeof window !== "undefined") {
+          try {
+            const adminCachedRaw = localStorage.getItem("mayilon_admin_orders_cache");
+            if (adminCachedRaw) {
+              const parsed = JSON.parse(adminCachedRaw);
+              if (Array.isArray(parsed)) {
+                for (const o of parsed) {
+                  if (o?.estimateNumber) mergedMap.set(o.estimateNumber, o);
+                }
+              }
+            }
+          } catch (e) {}
+        }
+
+        // 2. Incorporate current React state (never lose existing orders in memory)
+        for (const o of prev) {
+          if (o?.estimateNumber) mergedMap.set(o.estimateNumber, o);
+        }
+
+        // 3. Incorporate loaded orders from server & client backups
+        for (const o of loadedOrders) {
+          if (o?.estimateNumber) {
+            const existing = mergedMap.get(o.estimateNumber);
+            if (!existing || new Date(o.createdAt || 0) >= new Date(existing.createdAt || 0)) {
+              mergedMap.set(o.estimateNumber, { ...existing, ...o });
+            }
+          }
+        }
+
+        finalOrdersList = Array.from(mergedMap.values()).sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("mayilon_admin_orders_cache", JSON.stringify(finalOrdersList));
+          } catch (e) {}
+        }
+        return finalOrdersList;
+      });
+
+      // Self-healing mesh: if server container had cold restart and missed any orders present in admin cache, push them to server!
+      if (finalOrdersList.length > 0) {
+        const serverNumbers = new Set(rawOrders.map((ro: any) => String(ro.estimateNumber || ro.id || "").trim()));
+        for (const ord of finalOrdersList) {
+          if (ord.estimateNumber && !serverNumbers.has(ord.estimateNumber)) {
+            void fetch("/api/v1/estimates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(ord),
+            }).catch(() => {});
+          }
+        }
+      }
+
+      // Calculate live dynamic KPIs directly from merged orders
+      const ordersForKpi = finalOrdersList.length > 0 ? finalOrdersList : loadedOrders;
       const parseAmount = (val: any) => {
         if (typeof val === "number") return val;
         return parseFloat(String(val || 0).replace(/[^0-9.]/g, "")) || 0;
@@ -483,7 +544,7 @@ export default function AdminDashboardPage() {
       let todayCount = 0;
       let todayValue = 0;
 
-      for (const item of loadedOrders) {
+      for (const item of ordersForKpi) {
         const val = parseAmount(item.grandTotal);
         totalPipelineRevenue += val;
 
@@ -505,7 +566,7 @@ export default function AdminDashboardPage() {
       // 2. Fetch KPIs from server or use instant calculated fallback
       const calculatedKpis = {
         pipeline: Math.round(totalPipelineRevenue),
-        estimateCount: loadedOrders.length,
+        estimateCount: ordersForKpi.length,
         paidOrdersCount,
         paidOrdersRevenue: Math.round(paidOrdersRevenue),
         todayCount,
@@ -603,6 +664,18 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("mayilon_admin_orders_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setOrders(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (e) {}
+    }
     void loadData();
     const interval = setInterval(loadData, 8000);
     return () => clearInterval(interval);
@@ -663,6 +736,39 @@ export default function AdminDashboardPage() {
       console.error("[updateOrderStatus] Error updating order:", err);
       setNotificationToast(`Notice: Status updated locally to [${status}]`);
       setTimeout(() => setNotificationToast(null), 4000);
+    }
+  }
+
+  async function handleDeleteOrder(estimateNumber: string) {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete Order #${estimateNumber}?\n\nThis will remove it from the system and cannot be undone.`)) {
+      return;
+    }
+    // Update local state and permanent admin cache
+    setOrders((prev) => {
+      const updated = prev.filter((o) => o.estimateNumber !== estimateNumber);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("mayilon_admin_orders_cache", JSON.stringify(updated));
+          localStorage.removeItem(`mayilon_order_${estimateNumber}`);
+        } catch (e) {}
+      }
+      return updated;
+    });
+    // Send delete request to backend API
+    try {
+      const res = await fetch(`/api/v1/estimates/${encodeURIComponent(estimateNumber)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.success) {
+        setNotificationToast(`✓ Order #${estimateNumber} permanently deleted by Admin.`);
+      } else {
+        setNotificationToast(`Notice: ${json.message || "Order removed"}`);
+      }
+    } catch (err) {
+      setNotificationToast(`Notice: Order removed locally`);
+    } finally {
+      setTimeout(() => setNotificationToast(null), 3500);
     }
   }
 
@@ -1055,6 +1161,13 @@ export default function AdminDashboardPage() {
                                   className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded-lg transition-colors"
                                 >
                                   Delivered
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteOrder(o.estimateNumber)}
+                                  className="px-2 py-1 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/50 text-rose-300 hover:text-white text-[10px] font-bold rounded-lg transition-colors"
+                                  title="Permanently Delete Order (Admin only)"
+                                >
+                                  Delete
                                 </button>
                               </div>
                             </td>

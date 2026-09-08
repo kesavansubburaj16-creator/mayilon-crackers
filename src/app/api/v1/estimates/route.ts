@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     paymentStatus: body.paymentStatus || (body.paymentMethod === "COD" ? "UNPAID" : "PAID"),
     paymentMethod: body.paymentMethod || "UPI",
     notes: body.notes || "",
-    createdAt: new Date().toISOString(),
+    createdAt: body.createdAt ? new Date(body.createdAt).toISOString() : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 

@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { fail, ok } from "@/lib/api";
-import { getOrder, updateOrderStatus } from "@/lib/db";
+import { deleteOrder, getOrder, updateOrderStatus } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -66,4 +66,21 @@ export async function PATCH(req: Request, { params }: { params: Params }) {
   } catch (e) {}
 
   return ok({ order: updated }, "Order status updated successfully");
+}
+
+export async function DELETE(req: Request, { params }: { params: Params }) {
+  const { number } = await params;
+  const existing = await getOrder(number);
+  if (!existing) return fail(`Order #${number} not found`, [], 404);
+
+  await deleteOrder(number);
+
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/admin");
+    revalidatePath(`/estimate/${number}`);
+    revalidatePath("/track");
+  } catch (e) {}
+
+  return ok({ number }, "Order permanently deleted by admin");
 }

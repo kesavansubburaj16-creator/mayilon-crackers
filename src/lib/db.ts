@@ -3,6 +3,7 @@ import {
   getOrderFromEngine,
   getAllOrdersFromEngine,
   updateOrderStatusInEngine,
+  deleteOrderFromEngine,
   saveProductToEngine,
   getAllCustomProductsFromEngine,
   deleteProductFromEngine,
@@ -256,6 +257,26 @@ export async function updateOrderStatus(
   }
 
   return updated;
+}
+
+export async function deleteOrder(idOrNumber: string): Promise<boolean> {
+  await deleteOrderFromEngine(idOrNumber);
+  if (isSupabaseConfigured()) {
+    try {
+      const encoded = encodeURIComponent(idOrNumber);
+      await supabaseFetch("orders", {
+        method: "DELETE",
+        query: `order_number=eq.${encoded}`,
+      });
+      await supabaseFetch("estimates", {
+        method: "DELETE",
+        query: `estimate_number=eq.${encoded}`,
+      });
+    } catch (err) {
+      console.warn("[deleteOrder] Supabase delete note:", err);
+    }
+  }
+  return true;
 }
 
 export {

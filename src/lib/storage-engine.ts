@@ -265,6 +265,18 @@ export async function updateOrderStatusInEngine(
   return updated;
 }
 
+export async function deleteOrderFromEngine(idOrNumber: string): Promise<boolean> {
+  const existing = ORDERS_MAP.get(idOrNumber);
+  if (existing) {
+    ORDERS_MAP.delete(existing.estimateNumber);
+    ORDERS_MAP.delete(existing.id);
+  } else {
+    ORDERS_MAP.delete(idOrNumber);
+  }
+  saveToDisk();
+  return true;
+}
+
 /* ------------------------------------------------------------------ */
 /* Products Storage Interface                                         */
 /* ------------------------------------------------------------------ */

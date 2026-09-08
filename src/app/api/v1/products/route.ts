@@ -24,7 +24,9 @@ export async function GET(req: Request) {
     offset: num("offset") ?? 0,
   });
 
-  return ok({ items, total });
+  const res = ok({ items, total });
+  res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+  return res;
 }
 
 export async function POST(req: Request) {
