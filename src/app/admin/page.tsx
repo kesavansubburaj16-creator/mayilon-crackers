@@ -233,14 +233,14 @@ export default function AdminDashboardPage() {
     const renumberedDraggedItem = renumbered[dropIndex];
     const newSku = renumberedDraggedItem?.sku || "";
 
-    const items = renumbered.map((p) => ({
+    const items = renumbered.map((p, idx) => ({
       id: p.id,
       sku: p.sku,
-      previousSku: p.sku,
+      previousSku: updated[idx]?.sku || p.sku,
       name: p.name,
       categoryName: p.categoryName,
     }));
-    const orderIds = renumbered.map((p) => p.id || p.sku);
+    const orderIds = renumbered.map((p) => p.id);
 
     try {
       if (typeof window !== "undefined") {
@@ -300,14 +300,14 @@ export default function AdminDashboardPage() {
     const movedItem = renumbered[newIdx];
     const newSku = movedItem?.sku || "";
 
-    const items = renumbered.map((p) => ({
+    const items = renumbered.map((p, idx) => ({
       id: p.id,
       sku: p.sku,
-      previousSku: p.sku,
+      previousSku: updated[idx]?.sku || p.sku,
       name: p.name,
       categoryName: p.categoryName,
     }));
-    const orderIds = renumbered.map((p) => p.id || p.sku);
+    const orderIds = renumbered.map((p) => p.id);
 
     try {
       if (typeof window !== "undefined") {
@@ -568,13 +568,19 @@ export default function AdminDashboardPage() {
             if (cachedOrderRaw) {
               const cachedOrder: string[] = JSON.parse(cachedOrderRaw);
               if (Array.isArray(cachedOrder) && cachedOrder.length > 0) {
-                const orderMap = new Map(cachedOrder.map((id, idx) => [id, idx]));
-                mapped.sort((a: any, b: any) => {
-                  const posA = orderMap.get(a.id) ?? orderMap.get(a.sku) ?? orderMap.get(a.name) ?? 999999;
-                  const posB = orderMap.get(b.id) ?? orderMap.get(b.sku) ?? orderMap.get(b.name) ?? 999999;
-                  return posA - posB;
-                });
-                mapped = recalculateProductSkus(mapped);
+                // If cachedOrder contains legacy SKU strings (e.g. "MYL-"), purge it to prevent circular SKU collision
+                if (cachedOrder.some((id: string) => typeof id === "string" && id.startsWith("MYL-"))) {
+                  localStorage.removeItem("mayilon_local_reorder_cache");
+                  localStorage.removeItem("mayilon_local_sku_cache");
+                } else {
+                  const orderMap = new Map(cachedOrder.map((id, idx) => [id, idx]));
+                  mapped.sort((a: any, b: any) => {
+                    const posA = orderMap.get(a.id) ?? orderMap.get(a.name) ?? 999999;
+                    const posB = orderMap.get(b.id) ?? orderMap.get(b.name) ?? 999999;
+                    return posA - posB;
+                  });
+                  mapped = recalculateProductSkus(mapped);
+                }
               }
             }
           }
@@ -1099,7 +1105,7 @@ export default function AdminDashboardPage() {
                     <tbody className="divide-y divide-slate-800/60">
                       {products.map((p, idx) => (
                         <tr
-                          key={p.sku || p.id}
+                          key={p.id || p.sku}
                           draggable
                           onDragStart={(e) => handleDragStart(e, idx)}
                           onDragOver={(e) => handleDragOver(e, idx)}
